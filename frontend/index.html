@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meus Produtos — Prática de APIs</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!--
+  ============================================================================
+  GUIA PARA O SEU JAVASCRIPT
+  ============================================================================
+  1. Crie o arquivo script.js nesta mesma pasta (ele já está ligado no fim da página).
+  2. Comece com o endereço da API e o seu código de aluno:
+       const URL_API = "https://ENDERECO-DA-API/api/SEU-CODIGO";
+  3. Leia a documentação da API (o endereço é o mesmo, sem /api).
+
+  IDS DA PÁGINA
+    botao-exemplos     → botão que insere produtos de exemplo (POST /exemplos)
+    mensagem           → parágrafo para avisos. Use a classe "sucesso" ou "erro"
+                         para mudar a cor: mensagem.className = "mensagem erro"
+
+    form-produtos      → formulário de cadastro e edição (evento "submit")
+    titulo-formulario  → título do formulário ("Novo produto")
+    campo-nome, campo-descricao, campo-preco, campo-estoque, campo-categoria
+    campo-ativo        → checkbox: use .checked (true/false), não .value
+    botao-cancelar     → botão que limpa o formulário
+
+    form-filtros       → formulário dos filtros
+    campo-busca        → texto da busca (?q=...)
+    filtro-ativo       → "" (todos), "true" ou "false" (?ativo=...)
+    filtro-ordenar     → o value de cada opção já é o pedaço da URL,
+                         ex.: "ordenar=preco&ordem=desc"
+    botao-recarregar   → busca a lista de novo
+
+    lista-produtos     → <ul> onde você coloca os produtos
+    total-produtos     → contador de produtos
+
+  HTML DE UM PRODUTO (monte um <li> assim para cada produto da lista)
+    <li class="item cartao">
+      <div class="item-info">
+        <span class="tag">Periféricos</span>
+        <h3 class="item-titulo">Teclado mecânico</h3>
+        <p class="item-descricao">Switch azul, ABNT2</p>
+        <p class="item-preco">R$ 249.90</p>
+        <p class="item-estoque">Estoque: 12</p>
+      </div>
+      <div class="item-acoes">
+        <button class="btn btn-pequeno btn-secundario">Editar</button>
+        <button class="btn btn-pequeno btn-perigo">Excluir</button>
+      </div>
+    </li>
+
+    Classes extras no <li>: "inativo" (produto inativo) e "sem-estoque" (estoque 0).
+    Ex.: <li class="item cartao inativo">
+    Lista vazia: <li class="vazio">Nenhum produto encontrado.</li>
+
+  DICAS
+    - O value de um input é sempre texto: converta com Number(campo.value)
+    - Sem o evento.preventDefault() no "submit", a página recarrega
+  ============================================================================
+-->
+
+  <header class="topo">
+    <div class="container topo-conteudo">
+      <h1 class="logo">Meus <span>Produtos</span></h1>
+      <button id="botao-exemplos" class="btn btn-secundario" type="button">Inserir exemplos</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <p id="mensagem" class="mensagem"></p>
+
+    <section class="recurso">
+      <header class="recurso-cabecalho">
+        <h2>Produtos <span id="total-produtos" class="contador">0</span></h2>
+        <button id="botao-recarregar" class="btn btn-secundario btn-pequeno" type="button">Recarregar</button>
+      </header>
+
+      <div class="recurso-corpo">
+        <form id="form-produtos" class="formulario" autocomplete="off">
+          <h3 id="titulo-formulario" class="formulario-titulo">Novo produto</h3>
+
+          <label class="campo">
+            <span>Nome *</span>
+            <input type="text" id="campo-nome" required maxlength="120" placeholder="Ex.: Teclado mecânico">
+          </label>
+
+          <label class="campo">
+            <span>Descrição</span>
+            <textarea id="campo-descricao" rows="3" maxlength="1000" placeholder="Detalhes do produto"></textarea>
+          </label>
+
+          <div class="linha">
+            <label class="campo">
+              <span>Preço (R$) *</span>
+              <input type="number" id="campo-preco" required min="0" step="0.01" placeholder="0,00">
+            </label>
+
+            <label class="campo">
+              <span>Estoque</span>
+              <input type="number" id="campo-estoque" min="0" step="1" value="0">
+            </label>
+          </div>
+
+          <label class="campo">
+            <span>Categoria</span>
+            <input type="text" id="campo-categoria" maxlength="60" placeholder="Ex.: Periféricos">
+          </label>
+
+          <label class="check">
+            <input type="checkbox" id="campo-ativo" checked>
+            <span>Ativo</span>
+          </label>
+
+          <div class="formulario-acoes">
+            <button type="submit" class="btn btn-primario">Salvar</button>
+            <button type="button" id="botao-cancelar" class="btn btn-secundario">Cancelar</button>
+          </div>
+        </form>
+
+        <div class="listagem">
+          <form id="form-filtros" class="filtros" role="search">
+            <input type="search" id="campo-busca" placeholder="Buscar por nome, descrição ou categoria..." aria-label="Buscar produtos">
+            <select id="filtro-ativo" aria-label="Situação">
+              <option value="">Todos</option>
+              <option value="true">Ativos</option>
+              <option value="false">Inativos</option>
+            </select>
+            <select id="filtro-ordenar" aria-label="Ordenar por">
+              <option value="ordenar=nome">Nome (A–Z)</option>
+              <option value="ordenar=preco">Menor preço</option>
+              <option value="ordenar=preco&amp;ordem=desc">Maior preço</option>
+              <option value="ordenar=estoque">Menor estoque</option>
+              <option value="ordenar=id&amp;ordem=desc">Mais recentes</option>
+            </select>
+          </form>
+
+          <ul id="lista-produtos" class="lista lista-grade">
+            <li class="vazio">Nenhum produto carregado ainda.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="container">Prática de APIs com fetch · HTML e CSS prontos, o JavaScript é com você</div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
