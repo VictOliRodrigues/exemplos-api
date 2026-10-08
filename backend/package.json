@@ -1,0 +1,22 @@
+{
+  "name": "apis-alunos",
+  "version": "1.0.0",
+  "description": "API REST didática (Node.js puro + PostgreSQL) para os alunos praticarem fetch",
+  "type": "module",
+  "main": "src/server.js",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.0",
+    "swagger-ui-dist": "^5.33.1"
+  },
+  "scarfSettings": {
+    "enabled": false
+  }
+}
