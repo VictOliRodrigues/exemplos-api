@@ -32,6 +32,7 @@
       <a href="#erros-comuns">Erros comuns</a>
       <a href="#limites">Limites</a>
       <a href="#experimente">Experimente</a>
+      <a href="#autenticacao">Parte 2: Autenticação</a>
     </nav>
 
     <main class="conteudo">
@@ -299,6 +300,8 @@ const resposta = await fetch(`${API}/produtos?${parametros}`);</code></pre>
               <tr><td><span class="status ok">201 Created</span></td><td>POST criou o produto. O header <code>Location</code> traz a rota do novo produto</td></tr>
               <tr><td><span class="status ok">204 No Content</span></td><td>DELETE deu certo. A resposta não tem corpo</td></tr>
               <tr><td><span class="status erro">400 Bad Request</span></td><td>Dados inválidos, JSON mal formado, campo desconhecido, id ou parâmetro inválido</td></tr>
+              <tr><td><span class="status erro">401 Unauthorized</span></td><td>Parte 2: token ausente, mal formatado, substituído por um login mais novo ou expirado. Também ao errar usuário ou senha no login</td></tr>
+              <tr><td><span class="status erro">403 Forbidden</span></td><td>Parte 2: login de uma conta inativada pelo professor</td></tr>
               <tr><td><span class="status erro">404 Not Found</span></td><td>O produto ou a rota não existe</td></tr>
               <tr><td><span class="status erro">405 Method Not Allowed</span></td><td>Método não aceito naquela rota, ex.: PUT sem <code>/{id}</code></td></tr>
               <tr><td><span class="status erro">409 Conflict</span></td><td>Você atingiu o limite de produtos</td></tr>
@@ -395,6 +398,121 @@ const resposta = await fetch(`${API}/produtos?${parametros}`);</code></pre>
             <pre><code id="console-saida"></code></pre>
           </div>
         </form>
+      </section>
+
+      <!-- ================= PARTE 2: AUTENTICAÇÃO ================= -->
+      <section id="autenticacao">
+        <h2>Parte 2: Autenticação</h2>
+        <p class="lead">Na parte 2, ninguém acessa os seus produtos só por saber o seu código. O professor cadastra você com um <strong>usuário e uma senha</strong>. Você faz <strong>login</strong> e recebe um <strong>token</strong>. O token funciona como a sua "chave" e vai no header <code>Authorization</code> de toda requisição.</p>
+
+        <div class="caixa">
+          <p><strong>Como funciona o token</strong></p>
+          <ul class="lista-simples">
+            <li>Vale por <strong data-limite="tokenHoras">24</strong> horas.</li>
+            <li>Cada usuário tem <strong>um token por vez</strong>: fazer login de novo gera outro, e o anterior para de funcionar.</li>
+            <li>Vai no header assim: <code>Authorization: Bearer SEU_TOKEN</code> (a palavra <code>Bearer</code>, um espaço e o token).</li>
+            <li>Os produtos de <code>/privado</code> ficam separados dos de <code>/api/{aluno}</code> da parte 1.</li>
+          </ul>
+        </div>
+
+        <h3>Passo a passo</h3>
+        <ol class="passos">
+          <li><p>Pegue com o professor o seu usuário e a sua senha.</p></li>
+          <li><p>Faça login com <span class="metodo post">POST</span> <code>/auth/login</code> e guarde o <code>token</code> que vem na resposta.</p></li>
+          <li><p>Use as rotas <code>/privado/...</code> enviando o header <code>Authorization</code>.</p></li>
+          <li><p>Se receber <code>401</code>, o token expirou ou foi trocado: faça login de novo.</p></li>
+        </ol>
+
+        <h3>Rotas</h3>
+        <div class="tabela-rolagem">
+          <table>
+            <thead><tr><th>Método</th><th>Rota</th><th>Token?</th><th>O que faz</th><th>Resposta</th></tr></thead>
+            <tbody>
+              <tr><td><span class="metodo post">POST</span></td><td><code>/auth/login</code></td><td>não</td><td>Entra e recebe um token novo. Corpo: <code>{ "usuario", "senha" }</code></td><td><code>200</code> <code>{ token, tipo, expiraEm, usuario }</code></td></tr>
+              <tr><td><span class="metodo get">GET</span></td><td><code>/auth/eu</code></td><td class="sim">sim</td><td>Mostra de quem é o token e quando expira</td><td><code>200</code> objeto</td></tr>
+              <tr><td><span class="metodo post">POST</span></td><td><code>/auth/logout</code></td><td class="sim">sim</td><td>Invalida o token (sair)</td><td><code>204</code> sem corpo</td></tr>
+              <tr><td><span class="metodo get">GET</span></td><td><code>/privado</code></td><td class="sim">sim</td><td>Resumo: quantos produtos você tem</td><td><code>200</code> objeto</td></tr>
+              <tr><td>todos</td><td><code>/privado/produtos</code><br><code>/privado/produtos/{id}</code></td><td class="sim">sim</td><td>O mesmo CRUD da parte 1 (GET, POST, PUT, PATCH, DELETE, filtros e paginação)</td><td>Iguais à parte 1</td></tr>
+              <tr><td><span class="metodo post">POST</span></td><td><code>/privado/exemplos</code></td><td class="sim">sim</td><td>Insere produtos de exemplo</td><td><code>201</code> resumo</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3><span class="metodo post">POST</span> Login e guardar o token</h3>
+        <pre><code>const BASE = '<span class="var-base"></span>';
+
+async function login(usuario, senha) {
+  const resposta = await fetch(`${BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ usuario, senha }),
+  });
+  const dados = await resposta.json();
+  if (!resposta.ok) throw new Error(dados.erro); // 401: usuário ou senha incorretos
+
+  // Guarda o token para não precisar logar de novo a cada recarregamento da página
+  localStorage.setItem('token', dados.token);
+  return dados;
+}</code></pre>
+
+        <h3><span class="metodo get">GET</span> Usar o token</h3>
+        <pre><code>async function listarProdutos() {
+  const token = localStorage.getItem('token');
+  const resposta = await fetch(`${BASE}/privado/produtos`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (resposta.status === 401) {
+    // Token ausente, expirado ou trocado: volte para a tela de login
+    localStorage.removeItem('token');
+    alert('Sua sessão expirou. Faça login de novo.');
+    return [];
+  }
+  return resposta.json();
+}</code></pre>
+
+        <h3><span class="metodo post">POST</span> Criar com token</h3>
+        <p>Quando a requisição tem corpo JSON, envie os dois headers juntos:</p>
+        <pre><code>await fetch(`${BASE}/privado/produtos`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${localStorage.getItem('token')}`,
+  },
+  body: JSON.stringify({ nome: 'Mouse', preco: 49.9 }),
+});</code></pre>
+
+        <h3><span class="metodo post">POST</span> Sair</h3>
+        <pre><code>async function logout() {
+  await fetch(`${BASE}/auth/logout`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+  });
+  localStorage.removeItem('token');
+}</code></pre>
+
+        <h3>Erros comuns da parte 2</h3>
+        <dl class="faq">
+          <dt>401: “Envie o token no header Authorization: Bearer &lt;token&gt;”</dt>
+          <dd>Faltou o header <code>Authorization</code> no <code>fetch</code>.</dd>
+
+          <dt>401: “Header Authorization mal formatado”</dt>
+          <dd>Confira se escreveu <code>Bearer</code>, <strong>um espaço</strong> e o token: <code>`Bearer ${token}`</code>.</dd>
+
+          <dt>401: “Token inválido. Ele pode ter sido substituído...”</dt>
+          <dd>Você (ou outra aba) fez login de novo, e o token antigo parou de valer: use o mais recente. Também acontece quando o token é <code>null</code> porque ele não foi salvo no login.</dd>
+
+          <dt>401: “Token expirado”</dt>
+          <dd>Passou o prazo de validade. Faça login de novo.</dd>
+
+          <dt>401: “Usuário ou senha incorretos”</dt>
+          <dd>No login, o usuário não existe ou a senha está errada. O usuário é sempre em letras minúsculas.</dd>
+
+          <dt>403: “Sua conta está inativa”</dt>
+          <dd>O professor desativou a sua conta. Fale com ele.</dd>
+        </dl>
+
+        <p class="dica">No <a href="/swagger">Swagger</a>: faça <code>POST /auth/login</code>, copie o token, clique em <strong>Authorize</strong> no topo e cole. A partir daí, as rotas com cadeado enviam o header sozinhas.</p>
       </section>
 
       <footer class="rodape">

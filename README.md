@@ -27,6 +27,49 @@ A documentação completa fica na raiz do domínio (`https://seu-dominio/`), com
 
 O botão **Abrir no Swagger** da documentação leva ao Swagger UI (`/swagger`), onde dá para ver e executar todas as rotas. A especificação OpenAPI fica em `/openapi.json`. Ela é gerada automaticamente de `backend/src/recursos.js`, então acompanha qualquer campo novo sem edição manual. O Swagger UI é servido pelo próprio backend (pacote `swagger-ui-dist`, com a telemetria de instalação desligada no `package.json`), sem depender de CDN.
 
+## Parte 2: autenticação com token
+
+Uma segunda etapa para praticar login e headers. O professor cadastra cada aluno na área `/admin`; o aluno faz login e recebe um token, que precisa ir no header `Authorization` de toda requisição protegida.
+
+| Rota | O que faz |
+|---|---|
+| `POST /auth/login` | Corpo `{ "usuario": "maria", "senha": "1234" }`. Devolve `{ token, tipo, expiraEm, usuario }` |
+| `GET /auth/eu` | Mostra de quem é o token e quando expira |
+| `POST /auth/logout` | Invalida o token atual |
+| `/privado/produtos[/{id}]`, `/privado/exemplos`, `GET /privado` | O mesmo CRUD da parte 1, mas o dono dos dados vem do token |
+
+```js
+const resp = await fetch('/auth/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ usuario: 'maria', senha: '1234' }),
+});
+const { token } = await resp.json();
+
+const produtos = await fetch('/privado/produtos', {
+  headers: { Authorization: `Bearer ${token}` },
+}).then((r) => r.json());
+```
+
+- O token vale `TOKEN_HORAS` (padrão 24 h) **ou até um novo login**: cada usuário tem um único token ativo, e logar de novo invalida o anterior.
+- Sem token, com token errado, substituído ou expirado, a API responde `401` com uma mensagem explicando o motivo.
+- Senhas são guardadas com `scrypt` + sal, e o token só como hash SHA-256 (tabela `usuarios`, criada automaticamente).
+- Os dados de `/privado` são separados dos de `/api/{aluno}`, mesmo que o nome de usuário seja igual ao código de aluno.
+- No Swagger, faça login, copie o token e clique em **Authorize**.
+
+### Área do professor (`/admin`)
+
+Abra `https://seu-dominio/admin` e entre com `ADMIN_USUARIO` / `ADMIN_SENHA`. Lá dá para:
+
+- ver todos os alunos (situação, se está logado, último login, quantidade de produtos);
+- cadastrar aluno (usuário + senha);
+- inativar ou reativar: inativar derruba o token na hora e o login passa a responder `403`;
+- trocar a senha de um aluno (também derruba o token atual).
+
+Sem `ADMIN_SENHA` definida, o `/admin` responde `503`. A sessão do admin fica em memória, então reiniciar a API pede login de novo. No `docker-compose.yml` local o login é `admin` / `admin`.
+
+Rotas usadas pela página (todas com `Authorization: Bearer <token do admin>`, exceto o login): `POST /admin/login`, `POST /admin/logout`, `GET /admin/usuarios`, `POST /admin/usuarios` (`{ usuario, senha }`), `PATCH /admin/usuarios/{usuario}` (`{ ativo }` e/ou `{ senha }`).
+
 ## Rodar no seu computador
 
 Precisa do Docker:
@@ -78,6 +121,9 @@ npm run dev
 | `PORT` | `3000` | Porta HTTP |
 | `LIMITE_REGISTROS` | `200` | Máximo de produtos para cada aluno |
 | `LIMITE_REQ_MINUTO` | `300` | Máximo de requisições por minuto por aluno (`0` desativa) |
+| `TOKEN_HORAS` | `24` | Validade do token de login da parte 2 (e da sessão do admin), em horas |
+| `ADMIN_USUARIO` | `admin` | Usuário da área `/admin` |
+| `ADMIN_SENHA` | — | Senha da área `/admin`. Sem ela, o `/admin` fica desligado |
 
 A página de documentação mostra automaticamente os limites configurados.
 
