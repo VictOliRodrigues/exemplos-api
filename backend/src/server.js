@@ -9,6 +9,8 @@ import { cabecalhosCors, enviarJson, enviarErro, lerCorpoJson, ipDoCliente, Erro
 import { verificarLimite } from './limitador.js';
 import { gerarOpenApi } from './openapi.js';
 import * as crud from './crud.js';
+import * as auth from './auth.js';
+import * as admin from './admin.js';
 
 const regexAluno = /^[a-z0-9_-]{3,30}$/;
 const nomesRecursos = Object.keys(recursos);
@@ -30,6 +32,8 @@ const arquivosEstaticos = {
   '/docs.css': { pasta: pastaPublica, arquivo: 'docs.css', tipo: css },
   '/docs.js': { pasta: pastaPublica, arquivo: 'docs.js', tipo: js },
   '/swagger': { pasta: pastaPublica, arquivo: 'swagger.html', tipo: html },
+  '/admin': { pasta: pastaPublica, arquivo: 'admin.html', tipo: html },
+  '/admin.js': { pasta: pastaPublica, arquivo: 'admin.js', tipo: js },
   '/swagger/swagger-ui.css': { pasta: pastaSwagger, arquivo: 'swagger-ui.css', tipo: css, cache: true },
   '/swagger/swagger-ui-bundle.js': { pasta: pastaSwagger, arquivo: 'swagger-ui-bundle.js', tipo: js, cache: true },
 };
@@ -82,11 +86,18 @@ function descricaoDaApi(origem) {
     swagger: `${origem}/swagger`,
     openapi: `${origem}/openapi.json`,
     rotaBase: `${origem}/api/{aluno}`,
+    parte2: {
+      login: `POST ${origem}/auth/login`,
+      rotaBase: `${origem}/privado`,
+      header: 'Authorization: Bearer <token>',
+      validadeTokenHoras: config.tokenHoras,
+    },
     limites: {
       registros: config.limiteRegistros,
       requisicoesPorMinuto: config.limiteRequisicoesPorMinuto,
       tamanhoMaximoCorpoKb: config.tamanhoMaximoCorpo / 1024,
       atrasoMaximoMs: config.atrasoMaximo,
+      tokenHoras: config.tokenHoras,
     },
     recursos: Object.fromEntries(
       Object.entries(recursos).map(([nome, recurso]) => [
@@ -102,30 +113,27 @@ function descricaoDaApi(origem) {
   };
 }
 
-async function rotasDaApi(req, res, metodo, partes, parametros) {
-  // partes = ['api', aluno, recurso?, id?]
-  const aluno = partes[1].toLowerCase();
-  if (!regexAluno.test(aluno)) {
-    throw new ErroHttp(400, `Código do aluno inválido: "${partes[1]}". Use de 3 a 30 caracteres: letras minúsculas, números, - ou _`);
-  }
-
-  // /api/{aluno} → resumo de quantos registros o aluno tem
-  if (partes.length === 2) {
+// Rotas de dados, iguais na parte 1 (/api/{aluno}) e na parte 2 (/privado, com token).
+// dono = valor gravado na coluna "aluno"; base = começo da rota (para o header Location);
+// resto = partes depois da base, ex.: ['produtos', '3'].
+async function rotasDosDados(req, res, metodo, dono, base, resto, parametros) {
+  // base → resumo de quantos registros o dono tem
+  if (resto.length === 0) {
     exigirMetodo(metodo, ['GET']);
     const resumo = {};
     for (const nome of nomesRecursos) {
-      const { total } = await crud.listar(nome, aluno, new URLSearchParams('limite=1'));
+      const { total } = await crud.listar(nome, dono, new URLSearchParams('limite=1'));
       resumo[nome] = total;
     }
-    return enviarJson(res, 200, { aluno, recursos: resumo });
+    return resumo;
   }
 
-  const nomeRecurso = partes[2];
+  const nomeRecurso = resto[0];
 
-  // /api/{aluno}/exemplos → popula todos os recursos com dados de exemplo
-  if (nomeRecurso === 'exemplos' && partes.length === 3) {
+  // base/exemplos → popula todos os recursos com dados de exemplo
+  if (nomeRecurso === 'exemplos' && resto.length === 1) {
     exigirMetodo(metodo, ['POST']);
-    const inseridos = await crud.inserirExemplos(aluno);
+    const inseridos = await crud.inserirExemplos(dono);
     return enviarJson(res, 201, { mensagem: 'Dados de exemplo inseridos', inseridos });
   }
 
@@ -133,37 +141,103 @@ async function rotasDaApi(req, res, metodo, partes, parametros) {
     throw new ErroHttp(404, `Recurso "${nomeRecurso}" não existe. Recursos disponíveis: ${nomesRecursos.join(', ')}`);
   }
 
-  // /api/{aluno}/{recurso}
-  if (partes.length === 3) {
+  // base/{recurso}
+  if (resto.length === 1) {
     exigirMetodo(metodo, ['GET', 'POST', 'DELETE']);
     if (metodo === 'GET') {
-      const { registros, total } = await crud.listar(nomeRecurso, aluno, parametros);
+      const { registros, total } = await crud.listar(nomeRecurso, dono, parametros);
       return enviarJson(res, 200, registros, { 'X-Total-Count': String(total) });
     }
     if (metodo === 'POST') {
       const corpo = await lerCorpoJson(req, config.tamanhoMaximoCorpo);
-      const criado = await crud.criar(nomeRecurso, aluno, corpo);
-      return enviarJson(res, 201, criado, { Location: `/api/${aluno}/${nomeRecurso}/${criado.id}` });
+      const criado = await crud.criar(nomeRecurso, dono, corpo);
+      return enviarJson(res, 201, criado, { Location: `${base}/${nomeRecurso}/${criado.id}` });
     }
-    await crud.removerTodos(nomeRecurso, aluno);
+    await crud.removerTodos(nomeRecurso, dono);
     return enviarJson(res, 204);
   }
 
-  // /api/{aluno}/{recurso}/{id}
-  if (partes.length === 4) {
+  // base/{recurso}/{id}
+  if (resto.length === 2) {
     exigirMetodo(metodo, ['GET', 'PUT', 'PATCH', 'DELETE']);
-    const id = lerId(partes[3]);
-    if (metodo === 'GET') return enviarJson(res, 200, await crud.obter(nomeRecurso, aluno, id));
+    const id = lerId(resto[1]);
+    if (metodo === 'GET') return enviarJson(res, 200, await crud.obter(nomeRecurso, dono, id));
     if (metodo === 'DELETE') {
-      await crud.remover(nomeRecurso, aluno, id);
+      await crud.remover(nomeRecurso, dono, id);
       return enviarJson(res, 204);
     }
     const corpo = await lerCorpoJson(req, config.tamanhoMaximoCorpo);
     const funcao = metodo === 'PUT' ? crud.substituir : crud.atualizar;
-    return enviarJson(res, 200, await funcao(nomeRecurso, aluno, id, corpo));
+    return enviarJson(res, 200, await funcao(nomeRecurso, dono, id, corpo));
   }
 
   throw new ErroHttp(404, 'Rota não encontrada. Veja a documentação em /');
+}
+
+// Parte 1: /api/{aluno}/... (sem autenticação)
+async function rotasDaApi(req, res, metodo, partes, parametros) {
+  const aluno = partes[1].toLowerCase();
+  if (!regexAluno.test(aluno)) {
+    throw new ErroHttp(400, `Código do aluno inválido: "${partes[1]}". Use de 3 a 30 caracteres: letras minúsculas, números, - ou _`);
+  }
+  const resumo = await rotasDosDados(req, res, metodo, aluno, `/api/${aluno}`, partes.slice(2), parametros);
+  if (resumo) enviarJson(res, 200, { aluno, recursos: resumo });
+}
+
+// Parte 2: /auth/... (login) e /privado/... (exige "Authorization: Bearer <token>")
+async function rotasDeAutenticacao(req, res, metodo, partes) {
+  const acao = partes[1];
+  if (partes.length === 2 && acao === 'login') {
+    exigirMetodo(metodo, ['POST']);
+    const corpo = await lerCorpoJson(req, config.tamanhoMaximoCorpo);
+    return enviarJson(res, 200, await auth.login(corpo));
+  }
+  if (partes.length === 2 && acao === 'eu') {
+    exigirMetodo(metodo, ['GET']);
+    return enviarJson(res, 200, await auth.autenticar(req));
+  }
+  if (partes.length === 2 && acao === 'logout') {
+    exigirMetodo(metodo, ['POST']);
+    const { usuario } = await auth.autenticar(req);
+    await auth.logout(usuario);
+    return enviarJson(res, 204);
+  }
+  throw new ErroHttp(404, 'Rota não encontrada. Rotas de autenticação: /auth/login, /auth/eu, /auth/logout');
+}
+
+// Área do professor: /admin/login, /admin/logout, /admin/usuarios[/{usuario}] (a página /admin é estática)
+async function rotasDoAdmin(req, res, metodo, partes) {
+  const acao = partes[1];
+  if (partes.length === 2 && acao === 'login') {
+    exigirMetodo(metodo, ['POST']);
+    return enviarJson(res, 200, admin.loginAdmin(await lerCorpoJson(req, config.tamanhoMaximoCorpo)));
+  }
+
+  admin.exigirAdmin(req);
+
+  if (partes.length === 2 && acao === 'logout') {
+    exigirMetodo(metodo, ['POST']);
+    admin.logoutAdmin(req);
+    return enviarJson(res, 204);
+  }
+  if (acao === 'usuarios' && partes.length === 2) {
+    exigirMetodo(metodo, ['GET', 'POST']);
+    if (metodo === 'GET') return enviarJson(res, 200, await admin.listarUsuarios());
+    return enviarJson(res, 201, await admin.criarUsuario(await lerCorpoJson(req, config.tamanhoMaximoCorpo)));
+  }
+  if (acao === 'usuarios' && partes.length === 3) {
+    exigirMetodo(metodo, ['PATCH']);
+    const corpo = await lerCorpoJson(req, config.tamanhoMaximoCorpo);
+    return enviarJson(res, 200, await admin.alterarUsuario(partes[2].toLowerCase(), corpo));
+  }
+  throw new ErroHttp(404, 'Rota do admin não encontrada');
+}
+
+async function rotasPrivadas(req, res, metodo, partes, parametros) {
+  const { usuario } = await auth.autenticar(req);
+  // "@" não é aceito no código de aluno, então os dados privados nunca se misturam com /api/{aluno}.
+  const resumo = await rotasDosDados(req, res, metodo, `@${usuario}`, '/privado', partes.slice(1), parametros);
+  if (resumo) enviarJson(res, 200, { usuario, recursos: resumo });
 }
 
 async function tratarRequisicao(req, res) {
@@ -219,6 +293,18 @@ async function tratarRequisicao(req, res) {
 
   if (partes[0] === 'api' && partes.length >= 2) {
     return rotasDaApi(req, res, metodo, partes, url.searchParams);
+  }
+
+  if (partes[0] === 'auth') {
+    return rotasDeAutenticacao(req, res, metodo, partes);
+  }
+
+  if (partes[0] === 'admin') {
+    return rotasDoAdmin(req, res, metodo, partes);
+  }
+
+  if (partes[0] === 'privado') {
+    return rotasPrivadas(req, res, metodo, partes, url.searchParams);
   }
 
   throw new ErroHttp(404, 'Rota não encontrada. Veja a documentação em /');

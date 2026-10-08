@@ -7,6 +7,8 @@ services:
     environment:
       DATABASE_URL: postgres://apis:apis@db:5432/apis
       PORT: 3000
+      ADMIN_USUARIO: admin
+      ADMIN_SENHA: admin
     ports:
       - "3000:3000"
     depends_on:

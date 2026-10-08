@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Admin — API de Produtos</title>
+  <link rel="stylesheet" href="/docs.css">
+  <style>
+    .admin { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+    .painel { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); padding: 20px; margin-bottom: 20px; }
+    .painel h2 { margin-top: 0; font-size: 1.15rem; }
+    .login { max-width: 380px; margin: 48px auto; }
+    .campo { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: .9rem; color: var(--texto-suave); }
+    .campo input { font: inherit; font-family: var(--fonte-mono); color: var(--texto); background: var(--fundo); border: 1px solid var(--borda); border-radius: var(--raio); padding: 8px 10px; }
+    .campo input:focus { outline: 2px solid var(--destaque); outline-offset: 1px; }
+    /* Grid com posições fixas: rótulos na linha 1, campos e botão na linha 2, sempre alinhados. */
+    .linha-form { display: grid; grid-template-columns: 1fr 1fr auto; grid-template-rows: auto 40px; column-gap: 12px; row-gap: 4px; }
+    .linha-form label { font-size: .9rem; color: var(--texto-suave); align-self: end; }
+    .linha-form input { height: 40px; min-width: 0; font: inherit; font-family: var(--fonte-mono); color: var(--texto); background: var(--fundo); border: 1px solid var(--borda); border-radius: var(--raio); padding: 0 10px; }
+    .linha-form input:focus { outline: 2px solid var(--destaque); outline-offset: 1px; }
+    .linha-form .botao { height: 40px; }
+    .rotulo-usuario { grid-area: 1 / 1; }
+    .entrada-usuario { grid-area: 2 / 1; }
+    .rotulo-senha { grid-area: 1 / 2; }
+    .entrada-senha { grid-area: 2 / 2; }
+    .linha-form .botao { grid-area: 2 / 3; }
+    @media (max-width: 600px) {
+      .linha-form { grid-template-columns: 1fr; grid-template-rows: auto 40px auto 40px 40px; }
+      .rotulo-usuario { grid-area: 1 / 1; }
+      .entrada-usuario { grid-area: 2 / 1; }
+      .rotulo-senha { grid-area: 3 / 1; margin-top: 8px; }
+      .entrada-senha { grid-area: 4 / 1; }
+      .linha-form .botao { grid-area: 5 / 1; margin-top: 8px; }
+    }
+    .mensagem { min-height: 1.4em; margin: 10px 0 0; font-size: .92rem; }
+    .mensagem.erro { color: var(--erro); }
+    .mensagem.ok { color: var(--ok); }
+    .cabecalho-lista { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .cabecalho-lista h2 { margin: 0; }
+    .filtro { font: inherit; padding: 6px 10px; border: 1px solid var(--borda); border-radius: var(--raio); background: var(--fundo); color: var(--texto); }
+    table.usuarios td, table.usuarios th { vertical-align: middle; }
+    .selo { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+    .selo.ativo { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+    .selo.inativo { color: var(--erro); background: color-mix(in srgb, var(--erro) 14%, transparent); }
+    tr.inativo td:not(:last-child) { opacity: .6; }
+    .acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+    .botao-secundario { font: inherit; font-size: .85rem; padding: 4px 10px; border-radius: var(--raio); border: 1px solid var(--borda); background: var(--superficie-2); color: var(--texto); cursor: pointer; }
+    .botao-secundario:hover { border-color: var(--texto-suave); }
+    .botao-secundario.perigo { color: var(--erro); }
+    .vazio { color: var(--texto-suave); text-align: center; padding: 24px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-conteudo">
+      <a class="marca" href="/">API de Produtos <span>admin</span></a>
+      <div class="topo-acoes">
+        <button type="button" id="sair" class="botao-secundario" hidden>Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin">
+    <!-- Login -->
+    <section id="tela-login" class="painel login" hidden>
+      <h2>Entrar como admin</h2>
+      <form id="form-login">
+        <label class="campo">Usuário <input name="usuario" autocomplete="username" required></label>
+        <label class="campo">Senha <input name="senha" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="botao">Entrar</button>
+        <p class="mensagem" id="msg-login" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <!-- Painel -->
+    <div id="tela-painel" hidden>
+      <section class="painel">
+        <h2>Cadastrar aluno</h2>
+        <form id="form-novo" class="linha-form" autocomplete="off">
+          <label class="rotulo-usuario" for="novo-usuario">Usuário</label>
+          <input id="novo-usuario" class="entrada-usuario" name="usuario" placeholder="ex.: maria-silva" maxlength="30" pattern="[a-z0-9_\-]{3,30}" title="3 a 30 caracteres: letras minúsculas, números, - ou _" required spellcheck="false">
+          <label class="rotulo-senha" for="novo-senha">Senha</label>
+          <input id="novo-senha" class="entrada-senha" name="senha" minlength="4" maxlength="100" required>
+          <button type="submit" class="botao">Cadastrar</button>
+        </form>
+        <p class="mensagem" id="msg-novo" aria-live="polite"></p>
+      </section>
+
+      <section class="painel">
+        <div class="cabecalho-lista">
+          <h2>Alunos <span id="total" class="selo"></span></h2>
+          <input id="filtro" class="filtro" type="search" placeholder="Filtrar por usuário" aria-label="Filtrar por usuário">
+        </div>
+        <div class="tabela-rolagem">
+          <table class="usuarios">
+            <thead><tr><th>Usuário</th><th>Situação</th><th>Último login</th><th>Produtos</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
+            <tbody id="lista"></tbody>
+          </table>
+        </div>
+        <p class="mensagem" id="msg-lista" aria-live="polite"></p>
+      </section>
+    </div>
+  </main>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
