@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API de Produtos — Documentação</title>
+  <link rel="stylesheet" href="/docs.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-conteudo">
+      <a class="marca" href="#inicio">API de Produtos <span>docs</span></a>
+      <div class="topo-acoes">
+        <div class="codigo-aluno">
+          <label for="codigo-aluno">Seu código</label>
+          <input id="codigo-aluno" type="text" placeholder="ex.: maria-silva" autocomplete="off" spellcheck="false" maxlength="30">
+        </div>
+        <a class="botao botao-swagger" href="/swagger">Abrir no Swagger</a>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="sumario" aria-label="Sumário">
+      <a href="#inicio">Início</a>
+      <a href="#comecar">Primeiros passos</a>
+      <a href="#produto">O produto</a>
+      <a href="#rotas">Rotas</a>
+      <a href="#fetch">Exemplos com fetch</a>
+      <a href="#listagem">Filtros e paginação</a>
+      <a href="#respostas">Respostas e erros</a>
+      <a href="#erros-comuns">Erros comuns</a>
+      <a href="#limites">Limites</a>
+      <a href="#experimente">Experimente</a>
+    </nav>
+
+    <main class="conteudo">
+
+      <!-- ================= INÍCIO ================= -->
+      <section id="inicio">
+        <h1>API de Produtos</h1>
+        <p class="lead">Uma API REST para você praticar <code>fetch()</code> com todos os métodos HTTP: <strong>GET</strong>, <strong>POST</strong>, <strong>PUT</strong>, <strong>PATCH</strong> e <strong>DELETE</strong>, cadastrando, listando, editando e apagando produtos.</p>
+
+        <div class="caixa">
+          <p><strong>Cada aluno tem o seu próprio espaço.</strong> Você escolhe um <em>código de aluno</em> e ele vai na URL. Os produtos que você criar com o seu código só aparecem para quem usar o mesmo código.</p>
+          <p class="url-base">URL base: <code><span class="var-base"></span>/api/<span class="var-aluno"></span></code></p>
+          <p class="dica">Digite o seu código no campo <strong>Seu código</strong>, no topo da página. Os exemplos são atualizados automaticamente.</p>
+        </div>
+
+        <ul class="lista-simples">
+          <li>Todas as requisições e respostas usam <strong>JSON</strong>.</li>
+          <li>A API aceita requisições de qualquer origem (CORS liberado). Funciona com o HTML aberto direto do computador ou pelo Live Server.</li>
+          <li>O código do aluno tem de 3 a 30 caracteres: letras minúsculas, números, <code>-</code> ou <code>_</code>. Ex.: <code>maria-silva</code>, <code>joao_2b</code>.</li>
+          <li>Prefere testar clicando? Abra o <a href="/swagger">Swagger</a>: ele lista todas as rotas e deixa você enviar requisições direto pelo navegador. A especificação OpenAPI fica em <a href="/openapi.json"><code>/openapi.json</code></a>.</li>
+        </ul>
+
+        <div class="aviso">
+          <strong>Atenção:</strong> os dados são públicos para quem souber o seu código. Não cadastre informações reais ou pessoais. Use dados inventados.
+        </div>
+      </section>
+
+      <!-- ================= PRIMEIROS PASSOS ================= -->
+      <section id="comecar">
+        <h2>Primeiros passos</h2>
+        <ol class="passos">
+          <li>
+            <p>Escolha o seu código de aluno e guarde a URL base numa constante no seu <code>script.js</code>:</p>
+            <pre><code>const API = '<span class="var-base"></span>/api/<span class="var-aluno"></span>';</code></pre>
+          </li>
+          <li>
+            <p>Insira alguns produtos de exemplo para já ter o que mostrar na tela (rode uma vez só, no console do navegador ou na seção <a href="#experimente">Experimente</a>):</p>
+            <pre><code>await fetch(`${API}/exemplos`, { method: 'POST' });</code></pre>
+          </li>
+          <li>
+            <p>Abra no navegador e veja o JSON dos seus produtos:</p>
+            <p><a class="link-api" target="_blank" rel="noopener"><span class="var-base"></span>/api/<span class="var-aluno"></span>/produtos</a></p>
+          </li>
+          <li>
+            <p>Agora é com você: use <code>fetch()</code> para listar, criar, editar e apagar. Veja os <a href="#fetch">exemplos</a>.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ================= PRODUTO ================= -->
+      <section id="produto">
+        <h2>O produto</h2>
+        <p>Campos que você envia no corpo do <span class="metodo post">POST</span>, <span class="metodo put">PUT</span> e <span class="metodo patch">PATCH</span>:</p>
+        <div class="tabela-rolagem">
+          <table class="campos">
+            <thead><tr><th>Campo</th><th>Tipo</th><th>Obrigatório</th><th>Padrão</th><th>Regras</th></tr></thead>
+            <tbody>
+              <tr><td><code>nome</code></td><td>texto</td><td class="sim">sim</td><td>—</td><td>1 a 120 caracteres</td></tr>
+              <tr><td><code>descricao</code></td><td>texto</td><td>não</td><td><code>""</code></td><td>até 1000 caracteres</td></tr>
+              <tr><td><code>preco</code></td><td>número</td><td class="sim">sim</td><td>—</td><td>maior ou igual a 0, até 2 casas decimais (ex.: <code>19.9</code>)</td></tr>
+              <tr><td><code>estoque</code></td><td>número inteiro</td><td>não</td><td><code>0</code></td><td>de 0 a 1.000.000</td></tr>
+              <tr><td><code>categoria</code></td><td>texto</td><td>não</td><td><code>""</code></td><td>até 60 caracteres</td></tr>
+              <tr><td><code>ativo</code></td><td>booleano</td><td>não</td><td><code>true</code></td><td><code>true</code> ou <code>false</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>A API também cria estes campos. Se você enviar algum deles, ele é ignorado:</p>
+        <div class="tabela-rolagem">
+          <table class="campos">
+            <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
+            <tbody>
+              <tr><td><code>id</code></td><td>número</td><td>Identificador gerado pela API</td></tr>
+              <tr><td><code>criadoEm</code></td><td>texto (data e hora)</td><td>Quando o produto foi criado, ex.: <code>"2026-10-07T21:30:00.000Z"</code></td></tr>
+              <tr><td><code>atualizadoEm</code></td><td>texto (data e hora)</td><td>Última alteração (PUT ou PATCH)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Um produto como a API devolve:</p>
+        <pre><code>{
+  "id": 1,
+  "nome": "Teclado mecânico",
+  "descricao": "Switch azul, ABNT2",
+  "preco": 249.9,
+  "estoque": 12,
+  "categoria": "Periféricos",
+  "ativo": true,
+  "criadoEm": "2026-10-07T21:30:00.000Z",
+  "atualizadoEm": "2026-10-07T21:30:00.000Z"
+}</code></pre>
+      </section>
+
+      <!-- ================= ROTAS ================= -->
+      <section id="rotas">
+        <h2>Rotas</h2>
+        <p>Troque <code>{aluno}</code> pelo seu código e <code>{id}</code> pelo número do produto.</p>
+        <div class="tabela-rolagem">
+          <table>
+            <thead>
+              <tr><th>Método</th><th>Rota</th><th>O que faz</th><th>Resposta</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="metodo get">GET</span></td><td><code>/api/{aluno}/produtos</code></td><td>Lista os produtos (aceita <a href="#listagem">filtros</a>)</td><td><code>200</code> array</td></tr>
+              <tr><td><span class="metodo get">GET</span></td><td><code>/api/{aluno}/produtos/{id}</code></td><td>Busca um produto</td><td><code>200</code> objeto</td></tr>
+              <tr><td><span class="metodo post">POST</span></td><td><code>/api/{aluno}/produtos</code></td><td>Cria um produto</td><td><code>201</code> produto criado</td></tr>
+              <tr><td><span class="metodo put">PUT</span></td><td><code>/api/{aluno}/produtos/{id}</code></td><td>Substitui o produto inteiro. Campos não enviados voltam ao valor padrão.</td><td><code>200</code> objeto</td></tr>
+              <tr><td><span class="metodo patch">PATCH</span></td><td><code>/api/{aluno}/produtos/{id}</code></td><td>Altera só os campos enviados</td><td><code>200</code> objeto</td></tr>
+              <tr><td><span class="metodo delete">DELETE</span></td><td><code>/api/{aluno}/produtos/{id}</code></td><td>Apaga um produto</td><td><code>204</code> sem corpo</td></tr>
+              <tr><td><span class="metodo delete">DELETE</span></td><td><code>/api/{aluno}/produtos</code></td><td>Apaga <strong>todos</strong> os seus produtos</td><td><code>204</code> sem corpo</td></tr>
+              <tr><td><span class="metodo post">POST</span></td><td><code>/api/{aluno}/exemplos</code></td><td>Insere produtos de exemplo</td><td><code>201</code> resumo</td></tr>
+              <tr><td><span class="metodo get">GET</span></td><td><code>/api</code></td><td>Descreve a API e os campos (em JSON)</td><td><code>200</code> objeto</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= FETCH ================= -->
+      <section id="fetch">
+        <h2>Exemplos com fetch</h2>
+
+        <h3><span class="metodo get">GET</span> Listar</h3>
+        <pre><code>const API = '<span class="var-base"></span>/api/<span class="var-aluno"></span>';
+
+async function listarProdutos() {
+  const resposta = await fetch(`${API}/produtos`);
+  const produtos = await resposta.json(); // array de objetos
+
+  produtos.forEach((produto) =&gt; {
+    console.log(produto.id, produto.nome, produto.preco);
+  });
+}</code></pre>
+        <p>A mesma coisa usando <code>.then()</code>:</p>
+        <pre><code>fetch(`${API}/produtos`)
+  .then((resposta) =&gt; resposta.json())
+  .then((produtos) =&gt; console.log(produtos));</code></pre>
+
+        <h3><span class="metodo get">GET</span> Buscar um produto</h3>
+        <pre><code>const resposta = await fetch(`${API}/produtos/1`);
+
+if (resposta.status === 404) {
+  console.log('Produto não existe');
+} else {
+  const produto = await resposta.json();
+  console.log(produto.nome);
+}</code></pre>
+
+        <h3><span class="metodo post">POST</span> Criar</h3>
+        <pre><code>const novoProduto = {
+  nome: 'Teclado mecânico',
+  preco: 249.9,
+  estoque: 10,
+  categoria: 'Periféricos',
+};
+
+const resposta = await fetch(`${API}/produtos`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(novoProduto),
+});
+
+const criado = await resposta.json();
+console.log(resposta.status); // 201
+console.log(criado.id);       // id gerado pela API</code></pre>
+
+        <h3><span class="metodo put">PUT</span> Substituir</h3>
+        <p>Envie o produto completo. Campos que ficarem de fora voltam ao valor padrão.</p>
+        <pre><code>await fetch(`${API}/produtos/1`, {
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    nome: 'Teclado mecânico RGB',
+    descricao: 'Switch vermelho, ABNT2',
+    preco: 299.9,
+    estoque: 8,
+    categoria: 'Periféricos',
+    ativo: true,
+  }),
+});</code></pre>
+
+        <h3><span class="metodo patch">PATCH</span> Alterar alguns campos</h3>
+        <pre><code>// muda só o estoque do produto 1, sem mexer no resto
+const resposta = await fetch(`${API}/produtos/1`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ estoque: 0 }),
+});
+const atualizado = await resposta.json();</code></pre>
+
+        <h3><span class="metodo delete">DELETE</span> Apagar</h3>
+        <pre><code>const resposta = await fetch(`${API}/produtos/1`, { method: 'DELETE' });
+
+if (resposta.status === 204) {
+  console.log('Apagado!');
+  // 204 = sem corpo. NÃO chame resposta.json() aqui.
+}</code></pre>
+
+        <h3>Tratando erros</h3>
+        <p>O <code>fetch</code> só lança erro quando não consegue falar com o servidor. Respostas como 400 e 404 chegam normalmente, por isso confira <code>resposta.ok</code>. Toda resposta de erro tem a propriedade <code>erro</code> com uma mensagem.</p>
+        <pre><code>async function criarProduto(dados) {
+  try {
+    const resposta = await fetch(`${API}/produtos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados),
+    });
+    const corpo = await resposta.json();
+
+    if (!resposta.ok) {
+      // ex.: { erro: 'Dados inválidos', detalhes: { nome: 'Campo obrigatório' } }
+      alert(corpo.erro);
+      console.log(corpo.detalhes);
+      return;
+    }
+
+    console.log('Criado:', corpo);
+  } catch (erro) {
+    alert('Não foi possível conectar com a API');
+  }
+}</code></pre>
+      </section>
+
+      <!-- ================= LISTAGEM ================= -->
+      <section id="listagem">
+        <h2>Filtros, busca e paginação</h2>
+        <p>A listagem (<span class="metodo get">GET</span> <code>/api/{aluno}/produtos</code>) aceita parâmetros na URL. Dá para combinar vários com <code>&amp;</code>.</p>
+        <div class="tabela-rolagem">
+          <table>
+            <thead><tr><th>Parâmetro</th><th>Exemplo</th><th>O que faz</th></tr></thead>
+            <tbody>
+              <tr><td><em>nome do campo</em></td><td><code>?ativo=true</code><br><code>?categoria=cabos</code></td><td>Filtra pelo valor exato. Texto ignora maiúsculas e minúsculas. Repita o parâmetro para aceitar mais de um valor: <code>?categoria=cabos&amp;categoria=monitores</code></td></tr>
+              <tr><td><code>q</code></td><td><code>?q=teclado</code></td><td>Busca o texto em parte do <code>nome</code>, da <code>descricao</code> ou da <code>categoria</code></td></tr>
+              <tr><td><code>ordenar</code></td><td><code>?ordenar=preco</code></td><td>Ordena por um campo (padrão: <code>id</code>). Também aceita <code>criadoEm</code> e <code>atualizadoEm</code></td></tr>
+              <tr><td><code>ordem</code></td><td><code>?ordem=desc</code></td><td><code>asc</code> (crescente, padrão) ou <code>desc</code> (decrescente)</td></tr>
+              <tr><td><code>limite</code></td><td><code>?limite=10</code></td><td>Quantidade máxima de produtos na resposta</td></tr>
+              <tr><td><code>pagina</code></td><td><code>?limite=10&amp;pagina=2</code></td><td>Página desejada (começa em 1). Use junto com <code>limite</code></td></tr>
+              <tr><td><code>atraso</code></td><td><code>?atraso=2000</code></td><td>A API espera esse tempo em milissegundos antes de responder (máx. 5000). Funciona em qualquer rota. Use para testar a sua tela de “carregando...”</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>A listagem sempre devolve um array. O total de produtos encontrados (sem contar a paginação) vem no header <code>X-Total-Count</code>:</p>
+        <pre><code>const resposta = await fetch(`${API}/produtos?ativo=true&amp;ordenar=preco&amp;ordem=desc&amp;limite=5&amp;pagina=1`);
+const produtos = await resposta.json();
+const total = Number(resposta.headers.get('X-Total-Count'));
+
+console.log(`Mostrando ${produtos.length} de ${total} produtos`);</code></pre>
+
+        <p>Montando a URL a partir de um formulário de filtros:</p>
+        <pre><code>const parametros = new URLSearchParams();
+parametros.set('q', campoBusca.value);
+parametros.set('ordenar', 'nome');
+
+const resposta = await fetch(`${API}/produtos?${parametros}`);</code></pre>
+      </section>
+
+      <!-- ================= RESPOSTAS ================= -->
+      <section id="respostas">
+        <h2>Respostas e erros</h2>
+        <div class="tabela-rolagem">
+          <table>
+            <thead><tr><th>Status</th><th>Quando acontece</th></tr></thead>
+            <tbody>
+              <tr><td><span class="status ok">200 OK</span></td><td>GET, PUT e PATCH deram certo</td></tr>
+              <tr><td><span class="status ok">201 Created</span></td><td>POST criou o produto. O header <code>Location</code> traz a rota do novo produto</td></tr>
+              <tr><td><span class="status ok">204 No Content</span></td><td>DELETE deu certo. A resposta não tem corpo</td></tr>
+              <tr><td><span class="status erro">400 Bad Request</span></td><td>Dados inválidos, JSON mal formado, campo desconhecido, id ou parâmetro inválido</td></tr>
+              <tr><td><span class="status erro">404 Not Found</span></td><td>O produto ou a rota não existe</td></tr>
+              <tr><td><span class="status erro">405 Method Not Allowed</span></td><td>Método não aceito naquela rota, ex.: PUT sem <code>/{id}</code></td></tr>
+              <tr><td><span class="status erro">409 Conflict</span></td><td>Você atingiu o limite de produtos</td></tr>
+              <tr><td><span class="status erro">413 Payload Too Large</span></td><td>Corpo maior que 10 KB</td></tr>
+              <tr><td><span class="status erro">415 Unsupported Media Type</span></td><td>Faltou o header <code>Content-Type: application/json</code> no POST, PUT ou PATCH</td></tr>
+              <tr><td><span class="status erro">429 Too Many Requests</span></td><td>Requisições demais em 1 minuto (provavelmente um loop no código). O header <code>Retry-After</code> diz quantos segundos esperar</td></tr>
+              <tr><td><span class="status falha">500 Internal Server Error</span></td><td>Problema no servidor. Avise o professor</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>Toda resposta de erro tem este formato. <code>detalhes</code> só aparece quando há algo a explicar por campo:</p>
+        <pre><code>{
+  "erro": "Dados inválidos",
+  "detalhes": {
+    "nome": "Campo obrigatório",
+    "preco": "Deve ser um número (recebido: o texto \"19.90\"). Dica: converta com Number(valor)",
+    "ativo": "Deve ser true ou false, sem aspas (recebido: o texto \"true\")"
+  }
+}</code></pre>
+      </section>
+
+      <section id="erros-comuns">
+        <h2>Erros comuns</h2>
+        <dl class="faq">
+          <dt>415: “Envie o corpo em JSON com o header Content-Type: application/json”</dt>
+          <dd>Faltou <code>headers: { 'Content-Type': 'application/json' }</code> no <code>fetch</code>.</dd>
+
+          <dt>400: “Deve ser um número (recebido: o texto "19.90")”</dt>
+          <dd>O <code>value</code> de um <code>&lt;input&gt;</code> é sempre texto, mesmo com <code>type="number"</code>. Converta antes de enviar: <code>Number(input.value)</code>.</dd>
+
+          <dt>400: “Deve ser true ou false”</dt>
+          <dd>Para checkbox, use <code>input.checked</code> (que já é <code>true</code>/<code>false</code>), e não <code>input.value</code>.</dd>
+
+          <dt>400: “Campo desconhecido”</dt>
+          <dd>O nome do campo está errado. Os nomes não têm acento: <code>nome</code>, <code>descricao</code>, <code>preco</code>, <code>estoque</code>, <code>categoria</code>, <code>ativo</code>.</dd>
+
+          <dt>SyntaxError: Unexpected end of JSON input</dt>
+          <dd>Você chamou <code>resposta.json()</code> numa resposta <code>204</code> (DELETE), que não tem corpo.</dd>
+
+          <dt>404 com um id que existe</dt>
+          <dd>Confira o código do aluno na URL. Cada código tem os seus próprios produtos.</dd>
+
+          <dt>“Failed to fetch” ou erro de CORS no console</dt>
+          <dd>Geralmente é a URL errada (confira <code>https://</code> e o endereço) ou a internet caiu. A API aceita qualquer origem.</dd>
+        </dl>
+      </section>
+
+      <section id="limites">
+        <h2>Limites</h2>
+        <ul class="lista-simples">
+          <li>Até <strong data-limite="registros">200</strong> produtos para cada código de aluno.</li>
+          <li>Até <strong data-limite="requisicoesPorMinuto">300</strong> requisições por minuto para cada código de aluno.</li>
+          <li>Corpo da requisição de até <strong>10 KB</strong>.</li>
+          <li>Parâmetro <code>atraso</code> de até <strong>5000 ms</strong>.</li>
+        </ul>
+      </section>
+
+      <!-- ================= EXPERIMENTE ================= -->
+      <section id="experimente">
+        <h2>Experimente</h2>
+        <p>Faça requisições direto daqui, sem escrever código. Os botões de exemplo só preenchem o formulário: revise e clique em <strong>Enviar</strong>.</p>
+
+        <form id="console" class="console">
+          <div class="console-atalhos">
+            <span>Exemplos:</span>
+            <button type="button" class="atalho" data-metodo="POST" data-rota="/exemplos">Inserir exemplos</button>
+            <button type="button" class="atalho" data-metodo="GET" data-rota="/produtos">Listar produtos</button>
+            <button type="button" class="atalho" data-metodo="POST" data-rota="/produtos" data-corpo='{ "nome": "Meu primeiro produto", "preco": 10.5, "estoque": 3 }'>Criar produto</button>
+            <button type="button" class="atalho" data-metodo="PATCH" data-rota="/produtos/1" data-corpo='{ "estoque": 0 }'>Zerar estoque do 1</button>
+            <button type="button" class="atalho" data-metodo="GET" data-rota="/produtos?ordenar=preco&amp;ordem=desc">Mais caros primeiro</button>
+          </div>
+
+          <div class="console-linha">
+            <select id="console-metodo" aria-label="Método">
+              <option>GET</option>
+              <option>POST</option>
+              <option>PUT</option>
+              <option>PATCH</option>
+              <option>DELETE</option>
+            </select>
+            <div class="console-url">
+              <span class="console-prefixo"><span class="var-base"></span>/api/<span class="var-aluno"></span></span>
+              <input id="console-rota" type="text" value="/produtos" aria-label="Rota" spellcheck="false">
+            </div>
+            <button type="submit" class="botao">Enviar</button>
+          </div>
+
+          <label class="console-rotulo" for="console-corpo">Corpo (JSON)</label>
+          <textarea id="console-corpo" rows="6" spellcheck="false"></textarea>
+
+          <div class="console-resposta" aria-live="polite">
+            <div class="console-status"><span id="console-status">Nenhuma requisição ainda</span></div>
+            <pre><code id="console-saida"></code></pre>
+          </div>
+        </form>
+      </section>
+
+      <footer class="rodape">
+        <p>Swagger: <a href="/swagger">/swagger</a> · OpenAPI: <a href="/openapi.json">/openapi.json</a> · Descrição em JSON: <a href="/api">/api</a></p>
+      </footer>
+    </main>
+  </div>
+
+  <script src="/docs.js"></script>
+</body>
+</html>
