@@ -21,6 +21,11 @@ export const config = {
   tamanhoMaximoCorpo: 10 * 1024,
   // Atraso máximo aceito no parâmetro ?atraso=ms.
   atrasoMaximo: 5000,
+  // Parte 2: horas até o token de login expirar.
+  tokenHoras: numero('TOKEN_HORAS', 24),
+  // Login da área /admin (cadastro e inativação de alunos). Sem ADMIN_SENHA, o /admin fica desligado.
+  adminUsuario: process.env.ADMIN_USUARIO || 'admin',
+  adminSenha: process.env.ADMIN_SENHA || '',
 };
 
 if (!config.databaseUrl) {

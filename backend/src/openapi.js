@@ -255,6 +255,71 @@ export function gerarOpenApi() {
       },
     },
   };
+  // Parte 2: as mesmas rotas de dados em /privado, exigindo o token no header Authorization.
+  for (const [caminho, operacoes] of Object.entries(paths)) {
+    const copia = structuredClone(operacoes);
+    if (copia.parameters) copia.parameters = copia.parameters.filter((p) => p.$ref !== parametroRef('aluno').$ref);
+    for (const operacao of Object.values(copia)) {
+      if (!operacao.responses) continue;
+      operacao.tags = operacao.tags.map((t) => `${t} (privado)`);
+      operacao.operationId += 'Privado';
+      operacao.parameters = operacao.parameters?.filter((p) => p.$ref !== parametroRef('aluno').$ref);
+      operacao.security = [{ token: [] }];
+      operacao.responses[401] = respostaRef('NaoAutenticado');
+    }
+    paths[caminho.replace('/api/{aluno}', '/privado')] = copia;
+  }
+
+  const credenciais = {
+    type: 'object',
+    properties: {
+      usuario: { type: 'string', pattern: '^[a-z0-9_-]{3,30}$' },
+      senha: { type: 'string', minLength: 4, maxLength: 100 },
+    },
+    required: ['usuario', 'senha'],
+    example: { usuario: 'maria', senha: '1234' },
+  };
+  paths['/auth/login'] = {
+    post: {
+      tags: ['Autenticação'],
+      operationId: 'login',
+      summary: 'Entrar e receber um token',
+      description: `Devolve um token válido por ${config.tokenHoras} h. Fazer login de novo gera outro token e invalida o anterior. Envie-o nas rotas /privado com o header \`Authorization: Bearer <token>\` (no Swagger, clique em **Authorize**).`,
+      requestBody: { required: true, content: json(credenciais) },
+      responses: {
+        200: {
+          description: 'Login feito',
+          content: json({ type: 'object' }, { token: 'a3f9…(64 caracteres)', tipo: 'Bearer', expiraEm: dataExemplo, usuario: 'maria' }),
+        },
+        400: respostaRef('DadosInvalidos'),
+        401: respostaDeErro('Usuário ou senha errados', { erro: 'Usuário ou senha incorretos' }),
+        403: respostaDeErro('Conta inativada pelo professor', { erro: 'Sua conta está inativa. Fale com o professor.' }),
+        415: respostaRef('SemJson'),
+      },
+    },
+  };
+  paths['/auth/eu'] = {
+    get: {
+      tags: ['Autenticação'],
+      operationId: 'quemSouEu',
+      summary: 'Ver de quem é o token e quando expira',
+      security: [{ token: [] }],
+      responses: {
+        200: { description: 'Token válido', content: json({ type: 'object' }, { usuario: 'maria', expiraEm: dataExemplo }) },
+        401: respostaRef('NaoAutenticado'),
+      },
+    },
+  };
+  paths['/auth/logout'] = {
+    post: {
+      tags: ['Autenticação'],
+      operationId: 'logout',
+      summary: 'Sair (invalida o token atual)',
+      security: [{ token: [] }],
+      responses: { 204: { description: 'Token invalidado (resposta sem corpo)' }, 401: respostaRef('NaoAutenticado') },
+    },
+  };
+
   paths['/api'] = {
     get: {
       tags: ['Utilitários'],
@@ -293,6 +358,8 @@ export function gerarOpenApi() {
         '',
         '**Código do aluno:** todas as rotas começam com `/api/{aluno}`. Escolha um código (3 a 30 caracteres: letras minúsculas, números, `-` ou `_`) e use sempre o mesmo: cada código tem os seus próprios dados.',
         '',
+        `**Parte 2 (autenticação):** com o usuário e a senha que o professor cadastrou, faça login em \`POST /auth/login\` e envie o token no header \`Authorization: Bearer <token>\` nas rotas \`/privado\`. O token vale ${config.tokenHoras} h ou até um novo login.`,
+        '',
         `**Limites:** até ${config.limiteRegistros} ${nomes[0]} por aluno, ${config.limiteRequisicoesPorMinuto || 'sem limite de'} requisições por minuto e corpo de até ${config.tamanhoMaximoCorpo / 1024} KB.`,
         '',
         'Clique numa rota, depois em **Try it out** e em **Execute** para testar.',
@@ -301,13 +368,18 @@ export function gerarOpenApi() {
       ].join('\n'),
     },
     servers: [{ url: '/', description: 'Este servidor' }],
-    security: [], // API pública: nenhuma rota exige autenticação
+    security: [], // Parte 1 é pública; as rotas da parte 2 declaram a própria segurança
     tags: [
       ...nomes.map((n) => ({ name: capitalizar(n), description: `CRUD de ${n}` })),
+      { name: 'Autenticação', description: 'Parte 2: login e token' },
+      ...nomes.map((n) => ({ name: `${capitalizar(n)} (privado)`, description: `CRUD de ${n} com token (parte 2)` })),
       { name: 'Utilitários', description: 'Rotas de apoio' },
     ],
     paths,
     components: {
+      securitySchemes: {
+        token: { type: 'http', scheme: 'bearer', description: 'Token recebido em POST /auth/login' },
+      },
       parameters: {
         aluno: {
           name: 'aluno',
@@ -334,6 +406,11 @@ export function gerarOpenApi() {
         NaoEncontrado: respostaDeErro('Não encontrado (ou é de outro código de aluno)', { erro: `${capitalizar(primeiro.singular)} 1 não encontrad${primeiro.feminino ? 'a' : 'o'}` }),
         LimiteAtingido: respostaDeErro('Limite de registros atingido', { erro: `Limite de ${config.limiteRegistros} ${nomes[0]} por aluno atingido. Apague alguns antes de criar novos.` }),
         SemJson: respostaDeErro('Faltou o header Content-Type: application/json', { erro: 'Envie o corpo em JSON com o header "Content-Type: application/json"' }),
+        NaoAutenticado: {
+          description: 'Token ausente, inválido ou expirado',
+          headers: { 'WWW-Authenticate': { schema: { type: 'string' } } },
+          content: json(ref('Erro'), { erro: 'Token expirado. Faça login de novo em POST /auth/login.' }),
+        },
         MuitasRequisicoes: {
           description: `Mais de ${config.limiteRequisicoesPorMinuto} requisições em 1 minuto (provavelmente um loop no código)`,
           headers: { 'Retry-After': { description: 'Segundos para tentar de novo', schema: { type: 'integer' } } },

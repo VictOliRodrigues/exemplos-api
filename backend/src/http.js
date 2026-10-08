@@ -3,7 +3,7 @@
 export const cabecalhosCors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Expose-Headers': 'X-Total-Count, Location, Retry-After',
   'Access-Control-Max-Age': '86400',
 };

@@ -40,6 +40,19 @@ function valorPadraoSql(campo) {
 
 // Cria as tabelas (e colunas novas, se você adicionar campos em recursos.js depois).
 async function criarTabelas() {
+  // Parte 2: contas de usuário (senha e token guardados só como hash).
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuarios (
+      id SERIAL PRIMARY KEY,
+      usuario TEXT NOT NULL UNIQUE,
+      senha_hash TEXT NOT NULL,
+      token_hash TEXT UNIQUE,
+      token_expira_em TIMESTAMPTZ,
+      criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`);
+  await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ativo BOOLEAN NOT NULL DEFAULT true');
+  await pool.query('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultimo_login TIMESTAMPTZ');
+
   for (const [tabela, recurso] of Object.entries(recursos)) {
     const colunas = Object.entries(recurso.campos).map(([nome, campo]) => definicaoColuna(nome, campo));
     await pool.query(`
