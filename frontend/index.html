@@ -13,12 +13,6 @@
   <header class="topo"><div class="container navegacao"><a class="marca" href="index.html"><span class="simbolo" aria-hidden="true">C</span>classe<span class="ponto">.</span></a><span class="contexto">GESTÃO DE APRENDIZAGEM</span><span class="local">Meu espaço <span class="avatar">PR</span></span></div></header>
   <main class="container">
     <div class="introducao"><div><p class="sobretitulo">VISÃO GERAL DA TURMA</p><h1>Cada nota conta.</h1><p class="descricao">Acompanhe resultados e descubra como sua turma está evoluindo.</p></div><button id="botao-exemplos" class="botao secundario" type="button"><span aria-hidden="true">↗</span> Carregar turma de exemplo</button></div>
-    <form id="form-conexao" class="conexao" aria-label="Conex?o com a API">
-      <label>Endere?o da API<input id="endereco-api" type="url" required value="http://localhost:3000" placeholder="https://api.seudominio.com.br"></label>
-      <label>Seu c?digo<input id="codigo-api" required pattern="[a-z0-9_-]{3,30}" maxlength="30" value="professor"></label>
-      <label>Token (opcional, usa /privado)<input id="token-api" type="password" autocomplete="off" placeholder="Cole o token recebido no login"></label>
-      <button class="botao secundario" type="submit">Conectar / Recarregar</button>
-    </form>
     <div class="regra"><span class="indicador"></span> Média de aprovação: <strong>7,0</strong><span class="separador">/</span>4 avaliações com o mesmo peso<span class="regra-final">Notas de 0 a 10</span></div>
     <section class="estatisticas" aria-label="Estatísticas da turma">
       <article class="estatistica"><p>Total de alunos <span aria-hidden="true">♙</span></p><strong id="total-alunos">0</strong><small>Alunos cadastrados na turma</small></article>
@@ -29,13 +23,13 @@
     <p id="mensagem" class="mensagem" role="status" aria-live="polite"></p>
     <div class="painel">
       <section class="cartao cadastro" aria-labelledby="titulo-formulario"><div class="cabecalho-cartao"><span class="icone-titulo" aria-hidden="true">＋</span><h2 id="titulo-formulario">Novo aluno</h2></div><p class="ajuda">Preencha os dados e registre as avaliações.</p>
-        <form id="form-alunos">
+        <div id="campos-aluno">
           <label for="campo-nome">Nome completo</label><input id="campo-nome" name="nome" maxlength="100" required placeholder="Ex.: Ana Oliveira" autocomplete="name">
           <div class="rotulo-notas">Notas das avaliações <span>0 – 10</span></div>
           <div class="notas"><div><label for="nota-1">1ª nota</label><input id="nota-1" name="nota1" type="number" min="0" max="10" step="0.01" required placeholder="0,0"></div><div><label for="nota-2">2ª nota</label><input id="nota-2" name="nota2" type="number" min="0" max="10" step="0.01" required placeholder="0,0"></div><div><label for="nota-3">3ª nota</label><input id="nota-3" name="nota3" type="number" min="0" max="10" step="0.01" required placeholder="0,0"></div><div><label for="nota-4">4ª nota</label><input id="nota-4" name="nota4" type="number" min="0" max="10" step="0.01" required placeholder="0,0"></div></div>
           <div class="previa"><span>Média do aluno</span><strong id="previa-media">—</strong></div>
-          <button class="botao primario" id="botao-salvar" type="submit">＋ Adicionar aluno</button><button class="botao limpar" id="botao-cancelar" type="button">Limpar formulário</button>
-        </form><div class="dica"><span aria-hidden="true">ⓘ</span><p>A média é calculada automaticamente. Alunos com média igual ou superior a 7 são aprovados.</p></div>
+          <button class="botao primario" id="botao-salvar" type="button">＋ Adicionar aluno</button><button class="botao limpar" id="botao-cancelar" type="button">Limpar campos</button>
+        </div><div class="dica"><span aria-hidden="true">ⓘ</span><p>A média é calculada automaticamente. Alunos com média igual ou superior a 7 são aprovados.</p></div>
       </section>
       <section class="cartao alunos" aria-labelledby="titulo-alunos"><div class="cabecalho-lista"><div><h2 id="titulo-alunos">Alunos da turma <span id="contador-lista" class="contador">0</span></h2><p class="ajuda">Notas, médias e resultados em um só lugar.</p></div><button id="botao-exportar" class="botao exportar" type="button">↓ Exportar CSV</button></div>
         <div class="filtros"><input type="search" id="campo-busca" placeholder="Buscar aluno pelo nome..." aria-label="Buscar aluno pelo nome"><select id="filtro-situacao" aria-label="Filtrar por situação"><option value="todos">Todas as situações</option><option value="aprovado">Aprovados</option><option value="reprovado">Reprovados</option></select><select id="filtro-ordem" aria-label="Ordenar alunos"><option value="nome">Nome (A–Z)</option><option value="maior">Maior média</option><option value="menor">Menor média</option></select></div>

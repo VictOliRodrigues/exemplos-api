@@ -128,7 +128,7 @@ function caminhosDoRecurso(nomeRecurso, recurso) {
           { name: 'limite', in: 'query', description: 'Quantidade máxima de itens na resposta', schema: { type: 'integer', minimum: 1, maximum: config.limiteRegistros } },
           { name: 'pagina', in: 'query', description: 'Página desejada (começa em 1). Use junto com "limite".', schema: { type: 'integer', minimum: 1 } },
           ...filtros,
-          { name: 'situacao', in: 'query', description: 'Filtra pela situa??o calculada', schema: { type: 'string', enum: ['aprovado', 'reprovado'] } },
+          { name: 'situacao', in: 'query', description: 'Filtra pela situação calculada', schema: { type: 'string', enum: ['aprovado', 'reprovado'] } },
           parametroRef('atraso'),
         ],
         responses: {
@@ -268,8 +268,8 @@ export function gerarOpenApi() {
   };
   paths['/api/{aluno}/alunos/estatisticas'] = {
     get: {
-      tags: ['Alunos'], operationId: 'estatisticasTurma', summary: 'Estat?sticas da turma completa',
-      description: 'N?o aplica filtros ou pagina??o da listagem. Turma vazia retorna contagens 0 e m?dias e percentual null.',
+      tags: ['Alunos'], operationId: 'estatisticasTurma', summary: 'Estatísticas da turma completa',
+      description: 'Não aplica filtros ou paginação da listagem. Turma vazia retorna contagens 0 e médias e percentual null.',
       parameters: [parametroRef('aluno'), parametroRef('atraso')],
       responses: { 200: { description: 'Resumo da turma', content: json(ref('Estatisticas')) } },
     },
@@ -370,7 +370,7 @@ export function gerarOpenApi() {
   return {
     openapi: '3.0.3',
     info: {
-      title: 'API de Notas e Aprova??o',
+      title: 'API de Notas e Aprovação',
       version: '1.0.0',
       description: [
         'API REST para praticar requisições HTTP.',

@@ -631,39 +631,7 @@ footer>:last-child {
     padding-inline:18px
   }
 }
-.conexao {
-  display:flex;
-  align-items:end;
-  gap:14px;
-  padding:18px;
-  background:white;
-  border:1px solid var(--borda);
-  border-radius:10px;
-  margin-bottom:22px
-}
-.conexao label {
-  flex:1;
-  min-width:0;
-  margin:0;
-  line-height:1.8
-}
-.conexao input {
-  display:block;
-  width:100%;
-  margin-top:5px
-}
 button:disabled {
   opacity:.5;
   cursor:wait
-}
-@media(max-width:760px) {
-  .conexao {
-    flex-wrap:wrap
-  }
-  .conexao label {
-    flex-basis:100%
-  }
-  .conexao button {
-    width:100%
-  }
 }

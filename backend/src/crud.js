@@ -205,7 +205,7 @@ export async function inserirExemplos(aluno) {
   return inseridos;
 }
 
-// A turma inteira do dono, sem os filtros e a pagina??o da listagem.
+// A turma inteira do dono, sem os filtros e a paginação da listagem.
 export async function estatisticas(aluno) {
   const { rows } = await pool.query('SELECT nota1, nota2, nota3, nota4 FROM alunos WHERE aluno = $1', [aluno]);
   return estatisticasTurma(rows);

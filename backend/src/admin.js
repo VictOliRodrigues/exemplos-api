@@ -64,7 +64,7 @@ function paraJson(linha) {
   };
 }
 
-// Conta os alunos avaliados de cada usu?rio na parte 2 (dono gravado como "@usuario").
+// Conta os alunos avaliados de cada usuário na parte 2 (dono gravado como "@usuario").
 const contagemAlunos = Object.keys(recursos)
   .map((nome) => `(SELECT count(*) FROM "${nome}" WHERE aluno = '@' || u.usuario)`)
   .join(' + ');

@@ -19,7 +19,9 @@ docker compose up --build
 - Saúde da API e banco: http://localhost:3000/saude
 - Frontend: abra `frontend/index.html` no navegador ou use Live Server.
 
-O frontend aponta inicialmente para `http://localhost:3000` e para o código `professor`. O formulário de conexão permite alterar o endereço e o código. Para usar os dados privados, cole um token obtido em `POST /auth/login`; nesse modo as chamadas usam `/privado` com o header `Authorization`. O token fica apenas na memória da página e deve ser informado novamente após recarregar.
+Configure a constante `conexao` em `frontend/script.js` com o endereço da API e o código de prática (inicialmente `http://localhost:3000` e `professor`). Para a etapa autenticada, atribua ao campo `token` o valor obtido em `POST /auth/login`; nesse modo as chamadas usam `/privado` com o header `Authorization`. Toda a configuração e as chamadas da API ficam no JavaScript, sem controles de conexão na tela.
+
+O frontend usa campos e botões com eventos de clique, sem elementos `<form>` ou eventos de envio. A validação ocorre em cada input e o botão **Limpar campos** apaga os valores pelo JavaScript.
 
 **Os alunos e as notas ficam no PostgreSQL**, não no armazenamento local do navegador. O frontend informa falhas da API e não cria uma turma local alternativa.
 
@@ -134,7 +136,7 @@ Rotas: `POST /admin/login`, `POST /admin/logout`, `GET /admin/usuarios`, `POST /
 2. Crie a aplicação a partir do repositório, usando **Dockerfile**, diretório base **`/backend`**, porta **3000**.
 3. Configure o domínio, `DATABASE_URL`, `ADMIN_USUARIO` e `ADMIN_SENHA`.
 4. Publique e verifique `/saude`. As tabelas `usuarios` e `alunos` são criadas automaticamente; contas existentes são preservadas. Tabelas antigas de produtos não são utilizadas nem apagadas automaticamente.
-5. Use o endereço publicado no formulário de conexão do frontend.
+5. Configure o endereço publicado na constante `conexao` de `frontend/script.js`.
 
 O banco e a aplicação devem estar no mesmo destino para usar a URL interna. O frontend continua independente, como no projeto original.
 

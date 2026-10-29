@@ -1,5 +1,4 @@
 const elemento = id => document.getElementById(id);
-const formulario = elemento('form-alunos');
 const camposNotas = [1, 2, 3, 4].map(numero => elemento(`nota-${numero}`));
 let alunos = [];
 let idEmEdicao = null;
@@ -12,7 +11,9 @@ function mostrarMensagem(texto, tipo = 'sucesso') {
 
 let estatisticasApi = null;
 let ocupado = false;
-let conexao = { origem: 'http://localhost:3000', codigo: 'professor', token: '' };
+// Configure a integração aqui no JavaScript, sem controles na tela.
+// Para a etapa autenticada, informe o token retornado por POST /auth/login.
+const conexao = { origem: 'http://localhost:3000', codigo: 'professor', token: '' };
 
 function rotaBase() {
   return conexao.origem + (conexao.token ? '/privado' : `/api/${conexao.codigo}`);
@@ -51,7 +52,7 @@ async function executar(acao) {
   try {
     await acao();
   } catch (erro) {
-    mostrarMensagem(`N?o foi poss?vel concluir: ${erro.message}`, 'erro');
+    mostrarMensagem(`Não foi possível concluir: ${erro.message}`, 'erro');
   } finally {
     ocupado = false;
     document.querySelectorAll('button').forEach(botao => { botao.disabled = false; });
@@ -131,12 +132,13 @@ function atualizarPrevia() {
   elemento('previa-media').textContent = completas ? formatar(calcularMedia(camposNotas.map(campo => Number(campo.value)))) : '—';
 }
 
-function limparFormulario() {
+function limparCampos() {
   idEmEdicao = null;
-  formulario.reset();
+  elemento('campo-nome').value = '';
+  for (const campo of camposNotas) campo.value = '';
   elemento('titulo-formulario').textContent = 'Novo aluno';
   elemento('botao-salvar').textContent = '＋ Adicionar aluno';
-  elemento('botao-cancelar').textContent = 'Limpar formulário';
+  elemento('botao-cancelar').textContent = 'Limpar campos';
   atualizarPrevia();
 }
 
@@ -158,16 +160,20 @@ async function excluirAluno(id) {
   if (!aluno || !confirm(`Excluir ${aluno.nome} da turma?`)) return;
   await executar(async () => {
     await requisicao(`/alunos/${id}`, 'DELETE');
-    if (idEmEdicao === id) limparFormulario();
-    mostrarMensagem('Aluno exclu?do. Atualizando a turma?');
+    if (idEmEdicao === id) limparCampos();
+    mostrarMensagem('Aluno excluído. Atualizando a turma…');
     await carregarAlunos();
-    mostrarMensagem('Aluno exclu?do da turma.');
+    mostrarMensagem('Aluno excluído da turma.');
   });
 }
 
-formulario.addEventListener('submit', evento => {
-  evento.preventDefault();
-  if (!formulario.reportValidity()) return;
+elemento('botao-salvar').addEventListener('click', () => {
+  if (ocupado) return;
+  // Sem form: valide cada input antes de enviar os dados.
+  const campos = [elemento('campo-nome'), ...camposNotas];
+  for (const campo of campos) {
+    if (!campo.reportValidity()) return;
+  }
   const nome = elemento('campo-nome').value.trim();
   if (!nome) { mostrarMensagem('Informe o nome do aluno.', 'erro'); return; }
   const corpo = { nome };
@@ -175,39 +181,24 @@ formulario.addEventListener('submit', evento => {
   executar(async () => {
     const editando = idEmEdicao !== null;
     await requisicao(editando ? `/alunos/${idEmEdicao}` : '/alunos', editando ? 'PUT' : 'POST', corpo);
-    limparFormulario();
-    mostrarMensagem('Aluno salvo. Atualizando a turma?');
+    limparCampos();
+    mostrarMensagem('Aluno salvo. Atualizando a turma…');
     await carregarAlunos();
-    mostrarMensagem(editando ? 'Notas atualizadas com sucesso.' : 'Aluno adicionado ? turma.');
+    mostrarMensagem(editando ? 'Notas atualizadas com sucesso.' : 'Aluno adicionado à turma.');
   });
 });
 
 for (const campo of camposNotas) campo.addEventListener('input', atualizarPrevia);
-elemento('botao-cancelar').addEventListener('click', limparFormulario);
+elemento('botao-cancelar').addEventListener('click', limparCampos);
 elemento('campo-busca').addEventListener('input', atualizarTela);
 elemento('filtro-situacao').addEventListener('change', atualizarTela);
 elemento('filtro-ordem').addEventListener('change', atualizarTela);
 elemento('botao-exemplos').addEventListener('click', () => executar(async () => {
   const dados = await requisicao('/exemplos', 'POST');
-  mostrarMensagem('Exemplos inseridos. Atualizando a turma?');
+  mostrarMensagem('Exemplos inseridos. Atualizando a turma…');
   await carregarAlunos();
   mostrarMensagem(`${dados.inseridos.alunos} alunos de exemplo inseridos.`);
 }));
-
-elemento('form-conexao').addEventListener('submit', evento => {
-  evento.preventDefault();
-  if (ocupado || !evento.currentTarget.reportValidity()) return;
-  const url = new URL(elemento('endereco-api').value.trim());
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-    mostrarMensagem('Use um endere?o HTTP ou HTTPS sem credenciais na URL.', 'erro'); return;
-  }
-  conexao = { origem: url.origin, codigo: elemento('codigo-api').value.trim(), token: elemento('token-api').value.trim() };
-  alunos = [];
-  estatisticasApi = null;
-  limparFormulario();
-  atualizarTela();
-  executar(async () => { await carregarAlunos(); mostrarMensagem('Turma carregada da API.'); });
-});
 
 // Exporta a lista filtrada. O prefixo evita fórmulas em programas de planilha.
 elemento('botao-exportar').addEventListener('click', () => {
