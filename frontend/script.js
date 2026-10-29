@@ -1,305 +1,201 @@
-// ============================================================
-// GABARITO — Meus Produtos
-// Apague este arquivo antes de entregar a pasta aos alunos.
-// ============================================================
-
-// Endereço da API + o código do aluno.
-// No Coolify, troque por "https://SEU-DOMINIO/api/professor"
-const URL_API = "http://localhost:3000/api/professor";
-
-// O array é a "fonte da verdade": a tela é sempre desenhada a partir dele.
-// Começa vazio: quem preenche é o GET na API.
-let produtos = [];
-
-// Guarda o id do produto que está sendo editado.
-// null = o formulário está cadastrando um produto novo.
+﻿const CHAVE_DADOS = 'classe.alunos.v1';
+const elemento = id => document.getElementById(id);
+const formulario = elemento('form-alunos');
+const camposNotas = [1, 2, 3, 4].map(numero => elemento(`nota-${numero}`));
+let alunos = [];
 let idEmEdicao = null;
+const formatar = valor => valor === null ? '—' : valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 
-// --------------------------------------------------------------------- //
-// Funções que só mexem na tela
-// --------------------------------------------------------------------- //
+function mostrarMensagem(texto, tipo = 'sucesso') {
+  elemento('mensagem').textContent = texto;
+  elemento('mensagem').className = `mensagem ${tipo}`;
+}
 
-// Percorre o array e redesenha a lista inteira na página
+function carregarDados() {
+  try {
+    const dados = localStorage.getItem(CHAVE_DADOS);
+    if (dados === null) return;
+    const lista = JSON.parse(dados);
+    if (!Array.isArray(lista) || !lista.every(validarAluno) || new Set(lista.map(aluno => aluno.id)).size !== lista.length) {
+      throw new Error('Dados inválidos');
+    }
+    alunos = lista;
+  } catch {
+    mostrarMensagem('Não foi possível recuperar os dados salvos. Você pode continuar usando a turma nesta sessão.', 'erro');
+  }
+}
+
+function salvarDados(texto) {
+  atualizarTela();
+  try {
+    localStorage.setItem(CHAVE_DADOS, JSON.stringify(alunos));
+    mostrarMensagem(texto);
+  } catch {
+    mostrarMensagem(`${texto} O navegador não permitiu salvar: exporte o CSV antes de fechar esta página.`, 'erro');
+  }
+}
+
+function alunosVisiveis() {
+  return filtrarAlunos(alunos, elemento('campo-busca').value, elemento('filtro-situacao').value, elemento('filtro-ordem').value);
+}
+
+function criarCelula(texto, classe) {
+  const celula = document.createElement('td');
+  celula.textContent = texto;
+  if (classe) celula.className = classe;
+  return celula;
+}
+
 function atualizarTela() {
-  let html = "";
-
-  for (const produto of produtos) {
-    // As classes extras mudam o visual do cartão (veja o style.css)
-    let classes = "item cartao";
-    let nome = produto.nome;
-
-    if (produto.ativo === false) {
-      classes = classes + " inativo";
-      nome = nome + " (inativo)";
+  const estatisticas = calcularEstatisticas(alunos);
+  elemento('total-alunos').textContent = estatisticas.total;
+  elemento('media-turma').textContent = formatar(estatisticas.media);
+  elemento('total-aprovados').textContent = estatisticas.aprovados;
+  elemento('total-reprovados').textContent = estatisticas.reprovados;
+  elemento('taxa-aprovacao').textContent = estatisticas.total ? `${formatar(estatisticas.percentual)}% da turma` : 'Nenhum aluno cadastrado';
+  elemento('maior-media').textContent = formatar(estatisticas.maior);
+  elemento('menor-media').textContent = formatar(estatisticas.menor);
+  elemento('percentual-aprovacao').textContent = estatisticas.total ? `${formatar(estatisticas.percentual)}%` : '—';
+  const visiveis = alunosVisiveis();
+  const lista = elemento('lista-alunos');
+  lista.replaceChildren();
+  for (const aluno of visiveis) {
+    const linha = document.createElement('tr');
+    const nome = criarCelula('');
+    const identidade = document.createElement('div');
+    identidade.className = 'nome-aluno';
+    const iniciais = document.createElement('span');
+    iniciais.className = 'iniciais';
+    iniciais.setAttribute('aria-hidden', 'true');
+    iniciais.textContent = aluno.nome.trim().split(/\s+/).slice(0, 2).map(parte => parte[0]).join('').toLocaleUpperCase('pt-BR');
+    identidade.append(iniciais, document.createTextNode(aluno.nome));
+    nome.append(identidade);
+    linha.append(nome);
+    for (const nota of aluno.notas) linha.append(criarCelula(formatar(nota)));
+    linha.append(criarCelula(formatar(calcularMedia(aluno.notas)), 'media'));
+    const situacao = situacaoAluno(aluno);
+    const celulaSituacao = criarCelula('');
+    const selo = document.createElement('span');
+    selo.className = `selo ${situacao}`;
+    selo.textContent = situacao === 'aprovado' ? 'Aprovado' : 'Reprovado';
+    celulaSituacao.append(selo);
+    linha.append(celulaSituacao);
+    const acoes = criarCelula('');
+    for (const acao of ['editar', 'excluir']) {
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = `acao ${acao}`;
+      botao.textContent = acao === 'editar' ? 'Editar' : 'Excluir';
+      botao.setAttribute('aria-label', `${botao.textContent} ${aluno.nome}`);
+      botao.addEventListener('click', () => acao === 'editar' ? editarAluno(aluno.id) : excluirAluno(aluno.id));
+      acoes.append(botao);
     }
-
-    if (produto.estoque === 0) {
-      classes = classes + " sem-estoque";
-    }
-
-    // Os botões chamam as funções passando o id do produto
-    html =
-      html +
-      `<li class="${classes}">
-        <div class="item-info">
-          <span class="tag">${produto.categoria}</span>
-          <h3 class="item-titulo">${nome}</h3>
-          <p class="item-descricao">${produto.descricao}</p>
-          <p class="item-preco">R$ ${produto.preco.toFixed(2)}</p>
-          <p class="item-estoque">Estoque: ${produto.estoque}</p>
-        </div>
-        <div class="item-acoes">
-          <button class="btn btn-pequeno btn-secundario" onclick="editarProduto(${produto.id})">Editar</button>
-          <button class="btn btn-pequeno btn-perigo" onclick="excluirProduto(${produto.id})">Excluir</button>
-        </div>
-      </li>`;
+    linha.append(acoes);
+    lista.append(linha);
   }
-
-  if (produtos.length === 0) {
-    html = `<li class="vazio">Nenhum produto encontrado.</li>`;
-  }
-
-  document.getElementById("lista-produtos").innerHTML = html;
-  document.getElementById("total-produtos").textContent = produtos.length;
+  elemento('contador-lista').textContent = alunos.length;
+  elemento('resultado-filtro').textContent = `Exibindo ${visiveis.length} de ${alunos.length} alunos`;
+  elemento('estado-vazio').hidden = visiveis.length > 0;
+  elemento('estado-vazio').querySelector('h3').textContent = alunos.length ? 'Nenhum aluno encontrado' : 'Sua turma começa aqui';
+  elemento('estado-vazio').querySelector('p').textContent = alunos.length ? 'Tente outro nome ou altere os filtros.' : 'Adicione um aluno ou carregue a turma de exemplo.';
+  elemento('botao-exportar').disabled = visiveis.length === 0;
 }
 
-// tipo: "sucesso" (verde) ou "erro" (vermelho). A cor vem do style.css.
-function mostrarMensagem(texto, tipo) {
-  const mensagem = document.getElementById("mensagem");
-
-  mensagem.textContent = texto;
-  mensagem.className = "mensagem " + tipo;
+function atualizarPrevia() {
+  const completas = camposNotas.every(campo => campo.value !== '' && campo.validity.valid);
+  elemento('previa-media').textContent = completas ? formatar(calcularMedia(camposNotas.map(campo => Number(campo.value)))) : '—';
 }
 
-// Quando dá erro, a API responde assim:
-//   { "erro": "Dados inválidos", "detalhes": { "preco": "Campo obrigatório" } }
-// O for...in percorre os campos de "detalhes" (se não existir, não faz nada).
-function mostrarErroDaApi(dados) {
-  let texto = dados.erro;
-
-  for (const campo in dados.detalhes) {
-    texto = texto + " | " + campo + ": " + dados.detalhes[campo];
-  }
-
-  mostrarMensagem(texto, "erro");
-}
-
-// Leva os dados de um produto para os campos do formulário
-function preencherFormulario(produto) {
-  document.getElementById("campo-nome").value = produto.nome;
-  document.getElementById("campo-descricao").value = produto.descricao;
-  document.getElementById("campo-preco").value = produto.preco;
-  document.getElementById("campo-estoque").value = produto.estoque;
-  document.getElementById("campo-categoria").value = produto.categoria;
-  document.getElementById("campo-ativo").checked = produto.ativo;
-
-  document.getElementById("titulo-formulario").textContent = "Editando: " + produto.nome;
-}
-
-// Volta o formulário para o modo "Novo produto"
 function limparFormulario() {
-  document.getElementById("campo-nome").value = "";
-  document.getElementById("campo-descricao").value = "";
-  document.getElementById("campo-preco").value = "";
-  document.getElementById("campo-estoque").value = "0";
-  document.getElementById("campo-categoria").value = "";
-  document.getElementById("campo-ativo").checked = true;
-
-  document.getElementById("titulo-formulario").textContent = "Novo produto";
   idEmEdicao = null;
+  formulario.reset();
+  elemento('titulo-formulario').textContent = 'Novo aluno';
+  elemento('botao-salvar').textContent = '＋ Adicionar aluno';
+  elemento('botao-cancelar').textContent = 'Limpar formulário';
+  atualizarPrevia();
 }
 
-// --------------------------------------------------------------------- //
-// Funções de lógica: nenhuma delas mexe na tela
-// --------------------------------------------------------------------- //
-
-// Percorre o array e devolve o OBJETO com aquele id, ou null se não achar
-function procurarPorId(id) {
-  for (const produto of produtos) {
-    if (produto.id === id) {
-      return produto;
-    }
-  }
-
-  return null;
+function editarAluno(id) {
+  const aluno = alunos.find(item => item.id === id);
+  if (!aluno) return;
+  idEmEdicao = id;
+  elemento('campo-nome').value = aluno.nome;
+  camposNotas.forEach((campo, indice) => { campo.value = aluno.notas[indice]; });
+  elemento('titulo-formulario').textContent = 'Editar aluno';
+  elemento('botao-salvar').textContent = 'Salvar alterações';
+  elemento('botao-cancelar').textContent = 'Cancelar edição';
+  atualizarPrevia();
+  elemento('campo-nome').focus();
 }
 
-// Lê os campos do formulário e devolve um OBJETO no formato que a API espera
-function lerFormulario() {
-  const produto = {
-    nome: document.getElementById("campo-nome").value,
-    descricao: document.getElementById("campo-descricao").value,
-    // O value de um input é sempre texto: Number() converte para número
-    preco: Number(document.getElementById("campo-preco").value),
-    estoque: Number(document.getElementById("campo-estoque").value),
-    categoria: document.getElementById("campo-categoria").value,
-    // Checkbox: .checked já é true ou false
-    ativo: document.getElementById("campo-ativo").checked,
-  };
-
-  return produto;
+function excluirAluno(id) {
+  const aluno = alunos.find(item => item.id === id);
+  if (!aluno || !confirm(`Excluir ${aluno.nome} da turma?`)) return;
+  alunos = alunos.filter(item => item.id !== id);
+  if (idEmEdicao === id) limparFormulario();
+  salvarDados('Aluno excluído da turma.');
 }
 
-// Monta o endereço do GET com os filtros escolhidos na tela.
-// Ex.: http://localhost:3000/api/professor/produtos?ordenar=preco&ordem=desc&ativo=true&q=mouse
-function montarEnderecoDaLista() {
-  // O value de cada opção do select já é o pedaço da URL (ex.: "ordenar=preco&ordem=desc")
-  const ordenacao = document.getElementById("filtro-ordenar").value;
-  const ativo = document.getElementById("filtro-ativo").value;
-  const busca = document.getElementById("campo-busca").value.trim();
-
-  let endereco = URL_API + "/produtos?" + ordenacao;
-
-  if (ativo !== "") {
-    endereco = endereco + "&ativo=" + ativo;
-  }
-
-  if (busca !== "") {
-    // encodeURIComponent deixa o texto seguro para ir na URL (espaços, &, acentos...)
-    endereco = endereco + "&q=" + encodeURIComponent(busca);
-  }
-
-  return endereco;
-}
-
-// --------------------------------------------------------------------- //
-// Funções que falam com a API
-// --------------------------------------------------------------------- //
-
-// GET: busca os produtos e redesenha a tela
-async function carregarProdutos() {
-  try {
-    const resposta = await fetch(montarEnderecoDaLista());
-    const dados = await resposta.json();
-
-    if (!resposta.ok) {
-      mostrarErroDaApi(dados);
-      return;
-    }
-
-    produtos = dados;
-    atualizarTela();
-  } catch (erro) {
-    mostrarMensagem("Não foi possível falar com a API: " + erro.message, "erro");
-  }
-}
-
-// POST (produto novo) ou PUT (editando um produto): quem decide é o idEmEdicao
-async function salvarProduto(evento) {
-  // Sem isso o navegador recarrega a página e perde tudo
+formulario.addEventListener('submit', evento => {
   evento.preventDefault();
-
-  const produto = lerFormulario();
-
-  let endereco = URL_API + "/produtos";
-  let metodo = "POST";
-
-  if (idEmEdicao !== null) {
-    endereco = endereco + "/" + idEmEdicao;
-    metodo = "PUT";
-  }
-
-  try {
-    const resposta = await fetch(endereco, {
-      method: metodo,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(produto),
-    });
-    const dados = await resposta.json();
-
-    if (!resposta.ok) {
-      mostrarErroDaApi(dados);
-      return;
-    }
-
-    if (metodo === "POST") {
-      mostrarMensagem(dados.nome + " cadastrado com o id " + dados.id + ".", "sucesso");
-    } else {
-      mostrarMensagem(dados.nome + " atualizado.", "sucesso");
-    }
-
-    limparFormulario();
-    await carregarProdutos();
-  } catch (erro) {
-    mostrarMensagem("Não foi possível falar com a API: " + erro.message, "erro");
-  }
-}
-
-// DELETE: chamada pelo botão "Excluir" de cada produto
-async function excluirProduto(id) {
-  const produto = procurarPorId(id);
-
-  // confirm() abre uma janela com OK e Cancelar e devolve true ou false
-  if (!confirm("Excluir " + produto.nome + "?")) {
+  if (!formulario.reportValidity()) return;
+  const aluno = {
+    id: idEmEdicao || crypto.randomUUID(),
+    nome: elemento('campo-nome').value.trim(),
+    notas: camposNotas.map(campo => Number(campo.value)),
+  };
+  if (!validarAluno(aluno)) {
+    mostrarMensagem('Informe um nome e quatro notas entre 0 e 10.', 'erro');
     return;
   }
-
-  try {
-    const resposta = await fetch(URL_API + "/produtos/" + id, { method: "DELETE" });
-
-    // O DELETE responde 204, que vem SEM corpo: só chamamos .json() se deu erro
-    if (!resposta.ok) {
-      mostrarErroDaApi(await resposta.json());
-      return;
-    }
-
-    if (idEmEdicao === id) {
-      limparFormulario();
-    }
-
-    mostrarMensagem(produto.nome + " excluído.", "sucesso");
-    await carregarProdutos();
-  } catch (erro) {
-    mostrarMensagem("Não foi possível falar com a API: " + erro.message, "erro");
-  }
-}
-
-// POST /exemplos: a API cadastra alguns produtos prontos
-async function inserirExemplos() {
-  try {
-    const resposta = await fetch(URL_API + "/exemplos", { method: "POST" });
-    const dados = await resposta.json();
-
-    if (!resposta.ok) {
-      mostrarErroDaApi(dados);
-      return;
-    }
-
-    mostrarMensagem(dados.inseridos.produtos + " produtos de exemplo cadastrados.", "sucesso");
-    await carregarProdutos();
-  } catch (erro) {
-    mostrarMensagem("Não foi possível falar com a API: " + erro.message, "erro");
-  }
-}
-
-// --------------------------------------------------------------------- //
-// Funções ligadas aos botões
-// --------------------------------------------------------------------- //
-
-// "Editar" não fala com a API: só leva o produto para o formulário.
-// Quem salva é o salvarProduto(), com PUT.
-function editarProduto(id) {
-  const produto = procurarPorId(id);
-
-  idEmEdicao = id;
-  preencherFormulario(produto);
-  document.getElementById("campo-nome").focus();
-}
-
-document.getElementById("form-produtos").addEventListener("submit", salvarProduto);
-document.getElementById("botao-cancelar").addEventListener("click", limparFormulario);
-document.getElementById("botao-exemplos").addEventListener("click", inserirExemplos);
-document.getElementById("botao-recarregar").addEventListener("click", carregarProdutos);
-
-// Filtros: "input" dispara a cada tecla, "change" quando o select muda
-document.getElementById("campo-busca").addEventListener("input", carregarProdutos);
-document.getElementById("filtro-ativo").addEventListener("change", carregarProdutos);
-document.getElementById("filtro-ordenar").addEventListener("change", carregarProdutos);
-
-// Apertar Enter na busca envia o formulário de filtros: impedimos o recarregamento
-document.getElementById("form-filtros").addEventListener("submit", function (evento) {
-  evento.preventDefault();
+  const editando = idEmEdicao !== null;
+  if (editando) alunos = alunos.map(item => item.id === idEmEdicao ? aluno : item);
+  else alunos.push(aluno);
+  limparFormulario();
+  salvarDados(editando ? 'Notas atualizadas com sucesso.' : 'Aluno adicionado à turma.');
 });
 
-// Busca os produtos já no carregamento da página
-carregarProdutos();
+for (const campo of camposNotas) campo.addEventListener('input', atualizarPrevia);
+elemento('botao-cancelar').addEventListener('click', limparFormulario);
+elemento('campo-busca').addEventListener('input', atualizarTela);
+elemento('filtro-situacao').addEventListener('change', atualizarTela);
+elemento('filtro-ordem').addEventListener('change', atualizarTela);
+elemento('botao-exemplos').addEventListener('click', () => {
+  if (alunos.some(aluno => aluno.id.startsWith('exemplo-'))) {
+    mostrarMensagem('A turma de exemplo já foi adicionada. Seus alunos foram mantidos.');
+    return;
+  }
+  const exemplos = [
+    ['Ana Oliveira', [8.5, 9, 7.5, 9]], ['Bruno Santos', [5, 6.5, 4, 6]],
+    ['Camila Costa', [9, 9.5, 10, 9]], ['Daniel Almeida', [7, 7, 7, 7]],
+    ['Elisa Ferreira', [6, 5.5, 7, 6.5]], ['Felipe Lima', [8, 7.5, 8.5, 8]],
+  ];
+  exemplos.forEach(([nome, notas], indice) => alunos.push({ id: `exemplo-${indice}`, nome, notas }));
+  salvarDados('Turma de exemplo adicionada. Seus cadastros foram mantidos.');
+});
+
+// Exporta a lista filtrada. O prefixo evita fórmulas em programas de planilha.
+elemento('botao-exportar').addEventListener('click', () => {
+  const escapar = valor => {
+    let texto = String(valor);
+    if (/^[=+@\-\t\r\n]/.test(texto)) texto = `'${texto}`;
+    return `"${texto.replaceAll('"', '""')}"`;
+  };
+  const linhas = [['Aluno', 'Nota 1', 'Nota 2', 'Nota 3', 'Nota 4', 'Média', 'Situação']];
+  for (const aluno of alunosVisiveis()) {
+    linhas.push([aluno.nome, ...aluno.notas.map(formatar), formatar(calcularMedia(aluno.notas)), situacaoAluno(aluno)]);
+  }
+  const arquivo = new Blob(['\uFEFF', linhas.map(linha => linha.map(escapar).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(arquivo);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'notas-da-turma.csv';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  mostrarMensagem('CSV exportado com os alunos dos filtros atuais.');
+});
+
+carregarDados();
+atualizarTela();

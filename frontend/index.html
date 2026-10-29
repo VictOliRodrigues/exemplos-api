@@ -3,152 +3,43 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meus Produtos — Prática de APIs</title>
+  <meta name="theme-color" content="#193d36">
+  <title>Classe — Notas e aprovação</title>
   <link rel="stylesheet" href="style.css">
+  <script src="logica.js" defer></script>
+  <script src="script.js" defer></script>
 </head>
 <body>
-<!--
-  ============================================================================
-  GUIA PARA O SEU JAVASCRIPT
-  ============================================================================
-  1. Crie o arquivo script.js nesta mesma pasta (ele já está ligado no fim da página).
-  2. Comece com o endereço da API e o seu código de aluno:
-       const URL_API = "https://ENDERECO-DA-API/api/SEU-CODIGO";
-  3. Leia a documentação da API (o endereço é o mesmo, sem /api).
-
-  IDS DA PÁGINA
-    botao-exemplos     → botão que insere produtos de exemplo (POST /exemplos)
-    mensagem           → parágrafo para avisos. Use a classe "sucesso" ou "erro"
-                         para mudar a cor: mensagem.className = "mensagem erro"
-
-    form-produtos      → formulário de cadastro e edição (evento "submit")
-    titulo-formulario  → título do formulário ("Novo produto")
-    campo-nome, campo-descricao, campo-preco, campo-estoque, campo-categoria
-    campo-ativo        → checkbox: use .checked (true/false), não .value
-    botao-cancelar     → botão que limpa o formulário
-
-    form-filtros       → formulário dos filtros
-    campo-busca        → texto da busca (?q=...)
-    filtro-ativo       → "" (todos), "true" ou "false" (?ativo=...)
-    filtro-ordenar     → o value de cada opção já é o pedaço da URL,
-                         ex.: "ordenar=preco&ordem=desc"
-    botao-recarregar   → busca a lista de novo
-
-    lista-produtos     → <ul> onde você coloca os produtos
-    total-produtos     → contador de produtos
-
-  HTML DE UM PRODUTO (monte um <li> assim para cada produto da lista)
-    <li class="item cartao">
-      <div class="item-info">
-        <span class="tag">Periféricos</span>
-        <h3 class="item-titulo">Teclado mecânico</h3>
-        <p class="item-descricao">Switch azul, ABNT2</p>
-        <p class="item-preco">R$ 249.90</p>
-        <p class="item-estoque">Estoque: 12</p>
-      </div>
-      <div class="item-acoes">
-        <button class="btn btn-pequeno btn-secundario">Editar</button>
-        <button class="btn btn-pequeno btn-perigo">Excluir</button>
-      </div>
-    </li>
-
-    Classes extras no <li>: "inativo" (produto inativo) e "sem-estoque" (estoque 0).
-    Ex.: <li class="item cartao inativo">
-    Lista vazia: <li class="vazio">Nenhum produto encontrado.</li>
-
-  DICAS
-    - O value de um input é sempre texto: converta com Number(campo.value)
-    - Sem o evento.preventDefault() no "submit", a página recarrega
-  ============================================================================
--->
-
-  <header class="topo">
-    <div class="container topo-conteudo">
-      <h1 class="logo">Meus <span>Produtos</span></h1>
-      <button id="botao-exemplos" class="btn btn-secundario" type="button">Inserir exemplos</button>
-    </div>
-  </header>
-
+  <header class="topo"><div class="container navegacao"><a class="marca" href="index.html"><span class="simbolo" aria-hidden="true">C</span>classe<span class="ponto">.</span></a><span class="contexto">GESTÃO DE APRENDIZAGEM</span><span class="local">Meu espaço <span class="avatar">PR</span></span></div></header>
   <main class="container">
-    <p id="mensagem" class="mensagem"></p>
-
-    <section class="recurso">
-      <header class="recurso-cabecalho">
-        <h2>Produtos <span id="total-produtos" class="contador">0</span></h2>
-        <button id="botao-recarregar" class="btn btn-secundario btn-pequeno" type="button">Recarregar</button>
-      </header>
-
-      <div class="recurso-corpo">
-        <form id="form-produtos" class="formulario" autocomplete="off">
-          <h3 id="titulo-formulario" class="formulario-titulo">Novo produto</h3>
-
-          <label class="campo">
-            <span>Nome *</span>
-            <input type="text" id="campo-nome" required maxlength="120" placeholder="Ex.: Teclado mecânico">
-          </label>
-
-          <label class="campo">
-            <span>Descrição</span>
-            <textarea id="campo-descricao" rows="3" maxlength="1000" placeholder="Detalhes do produto"></textarea>
-          </label>
-
-          <div class="linha">
-            <label class="campo">
-              <span>Preço (R$) *</span>
-              <input type="number" id="campo-preco" required min="0" step="0.01" placeholder="0,00">
-            </label>
-
-            <label class="campo">
-              <span>Estoque</span>
-              <input type="number" id="campo-estoque" min="0" step="1" value="0">
-            </label>
-          </div>
-
-          <label class="campo">
-            <span>Categoria</span>
-            <input type="text" id="campo-categoria" maxlength="60" placeholder="Ex.: Periféricos">
-          </label>
-
-          <label class="check">
-            <input type="checkbox" id="campo-ativo" checked>
-            <span>Ativo</span>
-          </label>
-
-          <div class="formulario-acoes">
-            <button type="submit" class="btn btn-primario">Salvar</button>
-            <button type="button" id="botao-cancelar" class="btn btn-secundario">Cancelar</button>
-          </div>
-        </form>
-
-        <div class="listagem">
-          <form id="form-filtros" class="filtros" role="search">
-            <input type="search" id="campo-busca" placeholder="Buscar por nome, descrição ou categoria..." aria-label="Buscar produtos">
-            <select id="filtro-ativo" aria-label="Situação">
-              <option value="">Todos</option>
-              <option value="true">Ativos</option>
-              <option value="false">Inativos</option>
-            </select>
-            <select id="filtro-ordenar" aria-label="Ordenar por">
-              <option value="ordenar=nome">Nome (A–Z)</option>
-              <option value="ordenar=preco">Menor preço</option>
-              <option value="ordenar=preco&amp;ordem=desc">Maior preço</option>
-              <option value="ordenar=estoque">Menor estoque</option>
-              <option value="ordenar=id&amp;ordem=desc">Mais recentes</option>
-            </select>
-          </form>
-
-          <ul id="lista-produtos" class="lista lista-grade">
-            <li class="vazio">Nenhum produto carregado ainda.</li>
-          </ul>
-        </div>
-      </div>
+    <div class="introducao"><div><p class="sobretitulo">VISÃO GERAL DA TURMA</p><h1>Cada nota conta.</h1><p class="descricao">Acompanhe resultados e descubra como sua turma está evoluindo.</p></div><button id="botao-exemplos" class="botao secundario" type="button"><span aria-hidden="true">↗</span> Carregar turma de exemplo</button></div>
+    <div class="regra"><span class="indicador"></span> Média de aprovação: <strong>7,0</strong><span class="separador">/</span>4 avaliações com o mesmo peso<span class="regra-final">Notas de 0 a 10</span></div>
+    <section class="estatisticas" aria-label="Estatísticas da turma">
+      <article class="estatistica"><p>Total de alunos <span aria-hidden="true">♙</span></p><strong id="total-alunos">0</strong><small>Alunos cadastrados na turma</small></article>
+      <article class="estatistica"><p>Média da turma <span aria-hidden="true">∑</span></p><strong id="media-turma">—</strong><small>Média de todas as médias</small></article>
+      <article class="estatistica"><p>Aprovados <span class="verde" aria-hidden="true">↗</span></p><strong id="total-aprovados" class="verde">0</strong><small id="taxa-aprovacao">Nenhum aluno cadastrado</small></article>
+      <article class="estatistica"><p>Reprovados <span class="vermelho" aria-hidden="true">↘</span></p><strong id="total-reprovados" class="vermelho">0</strong><small>Média abaixo de 7,0</small></article>
     </section>
+    <p id="mensagem" class="mensagem" role="status" aria-live="polite"></p>
+    <div class="painel">
+      <section class="cartao cadastro" aria-labelledby="titulo-formulario"><div class="cabecalho-cartao"><span class="icone-titulo" aria-hidden="true">＋</span><h2 id="titulo-formulario">Novo aluno</h2></div><p class="ajuda">Preencha os dados e registre as avaliações.</p>
+        <form id="form-alunos">
+          <label for="campo-nome">Nome completo</label><input id="campo-nome" name="nome" maxlength="100" required placeholder="Ex.: Ana Oliveira" autocomplete="name">
+          <div class="rotulo-notas">Notas das avaliações <span>0 – 10</span></div>
+          <div class="notas"><div><label for="nota-1">1ª nota</label><input id="nota-1" name="nota1" type="number" min="0" max="10" step="0.1" required placeholder="0,0"></div><div><label for="nota-2">2ª nota</label><input id="nota-2" name="nota2" type="number" min="0" max="10" step="0.1" required placeholder="0,0"></div><div><label for="nota-3">3ª nota</label><input id="nota-3" name="nota3" type="number" min="0" max="10" step="0.1" required placeholder="0,0"></div><div><label for="nota-4">4ª nota</label><input id="nota-4" name="nota4" type="number" min="0" max="10" step="0.1" required placeholder="0,0"></div></div>
+          <div class="previa"><span>Média do aluno</span><strong id="previa-media">—</strong></div>
+          <button class="botao primario" id="botao-salvar" type="submit">＋ Adicionar aluno</button><button class="botao limpar" id="botao-cancelar" type="button">Limpar formulário</button>
+        </form><div class="dica"><span aria-hidden="true">ⓘ</span><p>A média é calculada automaticamente. Alunos com média igual ou superior a 7 são aprovados.</p></div>
+      </section>
+      <section class="cartao alunos" aria-labelledby="titulo-alunos"><div class="cabecalho-lista"><div><h2 id="titulo-alunos">Alunos da turma <span id="contador-lista" class="contador">0</span></h2><p class="ajuda">Notas, médias e resultados em um só lugar.</p></div><button id="botao-exportar" class="botao exportar" type="button">↓ Exportar CSV</button></div>
+        <div class="filtros"><input type="search" id="campo-busca" placeholder="Buscar aluno pelo nome..." aria-label="Buscar aluno pelo nome"><select id="filtro-situacao" aria-label="Filtrar por situação"><option value="todos">Todas as situações</option><option value="aprovado">Aprovados</option><option value="reprovado">Reprovados</option></select><select id="filtro-ordem" aria-label="Ordenar alunos"><option value="nome">Nome (A–Z)</option><option value="maior">Maior média</option><option value="menor">Menor média</option></select></div>
+        <div class="tabela-container"><table><thead><tr><th scope="col">ALUNO</th><th scope="col">N1</th><th scope="col">N2</th><th scope="col">N3</th><th scope="col">N4</th><th scope="col">MÉDIA</th><th scope="col">SITUAÇÃO</th><th scope="col"><span class="sr-only">Ações</span></th></tr></thead><tbody id="lista-alunos"></tbody></table></div>
+        <div id="estado-vazio" class="vazio"><span aria-hidden="true">▤</span><h3>Sua turma começa aqui</h3><p>Adicione um aluno ou carregue a turma de exemplo.</p></div>
+        <div class="rodape-lista"><span id="resultado-filtro">Exibindo 0 de 0 alunos</span><span><i class="indicador"></i> Atualizado automaticamente</span></div>
+      </section>
+    </div>
+    <section class="resumo" aria-label="Destaques da turma"><div><span class="sobretitulo">UM OLHAR SOBRE OS RESULTADOS</span><h2>O desempenho em perspectiva.</h2></div><div><span>Maior média</span><strong id="maior-media">—</strong></div><div><span>Menor média</span><strong id="menor-media">—</strong></div><div><span>Taxa de aprovação</span><strong id="percentual-aprovacao">—</strong></div></section>
+    <footer><span class="marca-rodape">classe.</span><span>Mais clareza para ensinar. Mais espaço para aprender.</span><span>Dados salvos neste navegador</span></footer>
   </main>
-
-  <footer class="rodape">
-    <div class="container">Prática de APIs com fetch · HTML e CSS prontos, o JavaScript é com você</div>
-  </footer>
-
-  <script src="script.js"></script>
 </body>
 </html>
