@@ -1,9 +1,9 @@
-﻿/* Regras da turma: funções puras para praticar arrays, laços e operadores. */
+/* Regras da turma: funções puras para praticar arrays, laços e operadores. */
 const MEDIA_APROVACAO = 7;
 
 function validarAluno(aluno) {
   return aluno !== null && typeof aluno === 'object' &&
-    typeof aluno.id === 'string' && aluno.id.length > 0 &&
+    ((typeof aluno.id === 'string' && aluno.id.length > 0) || (Number.isInteger(aluno.id) && aluno.id > 0)) &&
     typeof aluno.nome === 'string' && aluno.nome.trim().length > 0 && aluno.nome.length <= 100 &&
     Array.isArray(aluno.notas) && aluno.notas.length === 4 &&
     aluno.notas.every(nota => typeof nota === 'number' && Number.isFinite(nota) && nota >= 0 && nota <= 10);
@@ -11,8 +11,8 @@ function validarAluno(aluno) {
 
 function calcularMedia(notas) {
   let soma = 0;
-  for (const nota of notas) soma += nota;
-  return soma / notas.length;
+  for (const nota of notas) soma += Math.round(nota * 100);
+  return soma / (notas.length * 100);
 }
 
 function situacaoAluno(aluno) {

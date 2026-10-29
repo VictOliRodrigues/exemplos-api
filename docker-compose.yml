@@ -1,0 +1,35 @@
+# Para testar no seu computador:  docker compose up --build
+# API e documentação em http://localhost:3000
+# (No Coolify, use o Dockerfile da pasta backend + um PostgreSQL do próprio Coolify; veja o README.)
+services:
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://apis:apis@db:5432/apis
+      PORT: 3000
+      ADMIN_USUARIO: admin
+      ADMIN_SENHA: admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: apis
+      POSTGRES_PASSWORD: apis
+      POSTGRES_DB: apis
+    ports:
+      - "5432:5432"
+    volumes:
+      - dados:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apis -d apis"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  dados:

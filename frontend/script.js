@@ -1,4 +1,3 @@
-﻿const CHAVE_DADOS = 'classe.alunos.v1';
 const elemento = id => document.getElementById(id);
 const formulario = elemento('form-alunos');
 const camposNotas = [1, 2, 3, 4].map(numero => elemento(`nota-${numero}`));
@@ -11,27 +10,52 @@ function mostrarMensagem(texto, tipo = 'sucesso') {
   elemento('mensagem').className = `mensagem ${tipo}`;
 }
 
-function carregarDados() {
-  try {
-    const dados = localStorage.getItem(CHAVE_DADOS);
-    if (dados === null) return;
-    const lista = JSON.parse(dados);
-    if (!Array.isArray(lista) || !lista.every(validarAluno) || new Set(lista.map(aluno => aluno.id)).size !== lista.length) {
-      throw new Error('Dados inválidos');
-    }
-    alunos = lista;
-  } catch {
-    mostrarMensagem('Não foi possível recuperar os dados salvos. Você pode continuar usando a turma nesta sessão.', 'erro');
-  }
+let estatisticasApi = null;
+let ocupado = false;
+let conexao = { origem: 'http://localhost:3000', codigo: 'professor', token: '' };
+
+function rotaBase() {
+  return conexao.origem + (conexao.token ? '/privado' : `/api/${conexao.codigo}`);
 }
 
-function salvarDados(texto) {
+async function requisicao(rota, metodo = 'GET', corpo) {
+  const headers = {};
+  if (conexao.token) headers.Authorization = `Bearer ${conexao.token}`;
+  if (corpo !== undefined) headers['Content-Type'] = 'application/json';
+  const resposta = await fetch(rotaBase() + rota, {
+    method: metodo, headers,
+    ...(corpo !== undefined ? { body: JSON.stringify(corpo) } : {}),
+  });
+  if (resposta.status === 204) return null;
+  const dados = await resposta.json();
+  if (!resposta.ok) {
+    const detalhes = Object.entries(dados.detalhes || {}).map(([campo, erro]) => `${campo}: ${erro}`).join(' | ');
+    throw new Error([dados.erro || `Erro HTTP ${resposta.status}`, detalhes].filter(Boolean).join(' | '));
+  }
+  return dados;
+}
+
+async function carregarAlunos() {
+  const [registros, estatisticas] = await Promise.all([
+    requisicao('/alunos?ordenar=nome'), requisicao('/alunos/estatisticas'),
+  ]);
+  alunos = registros.map(aluno => ({ ...aluno, notas: [aluno.nota1, aluno.nota2, aluno.nota3, aluno.nota4] }));
+  estatisticasApi = estatisticas;
   atualizarTela();
+}
+
+async function executar(acao) {
+  if (ocupado) return;
+  ocupado = true;
+  document.querySelectorAll('button').forEach(botao => { botao.disabled = true; });
   try {
-    localStorage.setItem(CHAVE_DADOS, JSON.stringify(alunos));
-    mostrarMensagem(texto);
-  } catch {
-    mostrarMensagem(`${texto} O navegador não permitiu salvar: exporte o CSV antes de fechar esta página.`, 'erro');
+    await acao();
+  } catch (erro) {
+    mostrarMensagem(`N?o foi poss?vel concluir: ${erro.message}`, 'erro');
+  } finally {
+    ocupado = false;
+    document.querySelectorAll('button').forEach(botao => { botao.disabled = false; });
+    elemento('botao-exportar').disabled = alunosVisiveis().length === 0;
   }
 }
 
@@ -47,7 +71,7 @@ function criarCelula(texto, classe) {
 }
 
 function atualizarTela() {
-  const estatisticas = calcularEstatisticas(alunos);
+  const estatisticas = estatisticasApi || calcularEstatisticas([]);
   elemento('total-alunos').textContent = estatisticas.total;
   elemento('media-turma').textContent = formatar(estatisticas.media);
   elemento('total-aprovados').textContent = estatisticas.aprovados;
@@ -84,6 +108,7 @@ function atualizarTela() {
     for (const acao of ['editar', 'excluir']) {
       const botao = document.createElement('button');
       botao.type = 'button';
+      botao.disabled = ocupado;
       botao.className = `acao ${acao}`;
       botao.textContent = acao === 'editar' ? 'Editar' : 'Excluir';
       botao.setAttribute('aria-label', `${botao.textContent} ${aluno.nome}`);
@@ -128,31 +153,33 @@ function editarAluno(id) {
   elemento('campo-nome').focus();
 }
 
-function excluirAluno(id) {
+async function excluirAluno(id) {
   const aluno = alunos.find(item => item.id === id);
   if (!aluno || !confirm(`Excluir ${aluno.nome} da turma?`)) return;
-  alunos = alunos.filter(item => item.id !== id);
-  if (idEmEdicao === id) limparFormulario();
-  salvarDados('Aluno excluído da turma.');
+  await executar(async () => {
+    await requisicao(`/alunos/${id}`, 'DELETE');
+    if (idEmEdicao === id) limparFormulario();
+    mostrarMensagem('Aluno exclu?do. Atualizando a turma?');
+    await carregarAlunos();
+    mostrarMensagem('Aluno exclu?do da turma.');
+  });
 }
 
 formulario.addEventListener('submit', evento => {
   evento.preventDefault();
   if (!formulario.reportValidity()) return;
-  const aluno = {
-    id: idEmEdicao || crypto.randomUUID(),
-    nome: elemento('campo-nome').value.trim(),
-    notas: camposNotas.map(campo => Number(campo.value)),
-  };
-  if (!validarAluno(aluno)) {
-    mostrarMensagem('Informe um nome e quatro notas entre 0 e 10.', 'erro');
-    return;
-  }
-  const editando = idEmEdicao !== null;
-  if (editando) alunos = alunos.map(item => item.id === idEmEdicao ? aluno : item);
-  else alunos.push(aluno);
-  limparFormulario();
-  salvarDados(editando ? 'Notas atualizadas com sucesso.' : 'Aluno adicionado à turma.');
+  const nome = elemento('campo-nome').value.trim();
+  if (!nome) { mostrarMensagem('Informe o nome do aluno.', 'erro'); return; }
+  const corpo = { nome };
+  camposNotas.forEach((campo, indice) => { corpo[`nota${indice + 1}`] = Number(campo.value); });
+  executar(async () => {
+    const editando = idEmEdicao !== null;
+    await requisicao(editando ? `/alunos/${idEmEdicao}` : '/alunos', editando ? 'PUT' : 'POST', corpo);
+    limparFormulario();
+    mostrarMensagem('Aluno salvo. Atualizando a turma?');
+    await carregarAlunos();
+    mostrarMensagem(editando ? 'Notas atualizadas com sucesso.' : 'Aluno adicionado ? turma.');
+  });
 });
 
 for (const campo of camposNotas) campo.addEventListener('input', atualizarPrevia);
@@ -160,18 +187,26 @@ elemento('botao-cancelar').addEventListener('click', limparFormulario);
 elemento('campo-busca').addEventListener('input', atualizarTela);
 elemento('filtro-situacao').addEventListener('change', atualizarTela);
 elemento('filtro-ordem').addEventListener('change', atualizarTela);
-elemento('botao-exemplos').addEventListener('click', () => {
-  if (alunos.some(aluno => aluno.id.startsWith('exemplo-'))) {
-    mostrarMensagem('A turma de exemplo já foi adicionada. Seus alunos foram mantidos.');
-    return;
+elemento('botao-exemplos').addEventListener('click', () => executar(async () => {
+  const dados = await requisicao('/exemplos', 'POST');
+  mostrarMensagem('Exemplos inseridos. Atualizando a turma?');
+  await carregarAlunos();
+  mostrarMensagem(`${dados.inseridos.alunos} alunos de exemplo inseridos.`);
+}));
+
+elemento('form-conexao').addEventListener('submit', evento => {
+  evento.preventDefault();
+  if (ocupado || !evento.currentTarget.reportValidity()) return;
+  const url = new URL(elemento('endereco-api').value.trim());
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
+    mostrarMensagem('Use um endere?o HTTP ou HTTPS sem credenciais na URL.', 'erro'); return;
   }
-  const exemplos = [
-    ['Ana Oliveira', [8.5, 9, 7.5, 9]], ['Bruno Santos', [5, 6.5, 4, 6]],
-    ['Camila Costa', [9, 9.5, 10, 9]], ['Daniel Almeida', [7, 7, 7, 7]],
-    ['Elisa Ferreira', [6, 5.5, 7, 6.5]], ['Felipe Lima', [8, 7.5, 8.5, 8]],
-  ];
-  exemplos.forEach(([nome, notas], indice) => alunos.push({ id: `exemplo-${indice}`, nome, notas }));
-  salvarDados('Turma de exemplo adicionada. Seus cadastros foram mantidos.');
+  conexao = { origem: url.origin, codigo: elemento('codigo-api').value.trim(), token: elemento('token-api').value.trim() };
+  alunos = [];
+  estatisticasApi = null;
+  limparFormulario();
+  atualizarTela();
+  executar(async () => { await carregarAlunos(); mostrarMensagem('Turma carregada da API.'); });
 });
 
 // Exporta a lista filtrada. O prefixo evita fórmulas em programas de planilha.
@@ -197,5 +232,5 @@ elemento('botao-exportar').addEventListener('click', () => {
   mostrarMensagem('CSV exportado com os alunos dos filtros atuais.');
 });
 
-carregarDados();
 atualizarTela();
+executar(async () => { await carregarAlunos(); mostrarMensagem('Turma carregada da API.'); });
